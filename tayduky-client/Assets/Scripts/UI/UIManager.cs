@@ -79,6 +79,7 @@ namespace TayDuKy.UI
             if (loginPanel != null) loginPanel.SetActive(true);
             if (characterCreationPanel != null) characterCreationPanel.SetActive(false);
             if (worldPanel != null) worldPanel.SetActive(false);
+            if (combatPanel != null) combatPanel.SetActive(false);
         }
 
         public void ShowCharacterCreation()
@@ -87,6 +88,7 @@ namespace TayDuKy.UI
             if (loginPanel != null) loginPanel.SetActive(false);
             if (characterCreationPanel != null) characterCreationPanel.SetActive(true);
             if (worldPanel != null) worldPanel.SetActive(false);
+            if (combatPanel != null) combatPanel.SetActive(false);
         }
 
         public void ShowWorld()
@@ -95,6 +97,7 @@ namespace TayDuKy.UI
             if (loginPanel != null) loginPanel.SetActive(false);
             if (characterCreationPanel != null) characterCreationPanel.SetActive(false);
             if (worldPanel != null) worldPanel.SetActive(true);
+            if (combatPanel != null) combatPanel.SetActive(false);
         }
 
         public void UpdateCharacterStats(string name, int level, int hpCur, int hpMax, int mpCur, int mpMax)
