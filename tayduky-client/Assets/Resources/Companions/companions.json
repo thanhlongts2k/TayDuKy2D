@@ -1,0 +1,167 @@
+[
+  {
+    "id": 5001,
+    "name": "Tề Thiên Đại Thánh",
+    "rarity": "Thần Thoại",
+    "faction": "Thần Tộc",
+    "attack_type": "Vật Lý",
+    "base_atk": 85,
+    "base_def": 45,
+    "base_hp": 650,
+    "description": "Tôn Ngộ Không thần thông quảng đại, sở hữu 72 phép biến hóa và gậy Như Ý."
+  },
+  {
+    "id": 5002,
+    "name": "Nhị Lang Thần",
+    "rarity": "Thần Thoại",
+    "faction": "Thần Tộc",
+    "attack_type": "Vật Lý",
+    "base_atk": 82,
+    "base_def": 48,
+    "base_hp": 680,
+    "description": "Dương Tiễn uy dũng vô song, sở hữu Thiên Nhãn nhìn thấu yêu ma và Tam Tiêm Đao."
+  },
+  {
+    "id": 5003,
+    "name": "Thiên Bồng Nguyên Soái",
+    "rarity": "Cực Phẩm",
+    "faction": "Thần Tộc",
+    "attack_type": "Vật Lý",
+    "base_atk": 55,
+    "base_def": 55,
+    "base_hp": 850,
+    "description": "Trư Bát Giới sức mạnh hơn người, cơ thể dẻo dai chống chịu sát thương rất tốt."
+  },
+  {
+    "id": 5004,
+    "name": "Na Tra Thái Tử",
+    "rarity": "Cực Phẩm",
+    "faction": "Thần Tộc",
+    "attack_type": "Phép Thuật",
+    "base_atk": 75,
+    "base_def": 38,
+    "base_hp": 580,
+    "description": "Tam Thái Tử sử dụng Hỏa Tiên Thương và Vòng Càn Khôn tấn công chớp nhoáng."
+  },
+  {
+    "id": 5005,
+    "name": "Quyển Liêm Đại Tướng",
+    "rarity": "Hiếm",
+    "faction": "Thần Tộc",
+    "attack_type": "Vật Lý",
+    "base_atk": 48,
+    "base_def": 42,
+    "base_hp": 550,
+    "description": "Sa Tăng thật thà trung hậu, bền bỉ hỗ trợ đồng đội vượt qua gian khó."
+  },
+  {
+    "id": 5006,
+    "name": "Ngưu Ma Vương",
+    "rarity": "Thần Thoại",
+    "faction": "Yêu Tộc",
+    "attack_type": "Vật Lý",
+    "base_atk": 78,
+    "base_def": 65,
+    "base_hp": 950,
+    "description": "Bình Thiên Đại Thánh, thủ lĩnh Yêu Tộc với sức mạnh phòng thủ vật lý cực đại."
+  },
+  {
+    "id": 5007,
+    "name": "Thiết Phiến Công Chúa",
+    "rarity": "Cực Phẩm",
+    "faction": "Yêu Tộc",
+    "attack_type": "Phép Thuật",
+    "base_atk": 70,
+    "base_def": 35,
+    "base_hp": 520,
+    "description": "Bà La Sát sở hữu Quạt Ba Tiêu quạt bay vạn trượng quái vật."
+  },
+  {
+    "id": 5008,
+    "name": "Hồng Hài Nhi",
+    "rarity": "Cực Phẩm",
+    "faction": "Yêu Tộc",
+    "attack_type": "Phép Thuật",
+    "base_atk": 78,
+    "base_def": 30,
+    "base_hp": 480,
+    "description": "Thánh Anh Đại Vương, sử dụng Tam Muội Chân Hỏa thiêu rụi kẻ địch."
+  },
+  {
+    "id": 5009,
+    "name": "Bạch Cốt Tinh",
+    "rarity": "Hiếm",
+    "faction": "Yêu Tộc",
+    "attack_type": "Phép Thuật",
+    "base_atk": 62,
+    "base_def": 28,
+    "base_hp": 450,
+    "description": "Yêu quái biến hóa khôn lường, thiên về né tránh và hút máu đối thủ."
+  },
+  {
+    "id": 5010,
+    "name": "Tiểu Toàn Phong",
+    "rarity": "Thường",
+    "faction": "Yêu Tộc",
+    "attack_type": "Vật Lý",
+    "base_atk": 30,
+    "base_def": 20,
+    "base_hp": 300,
+    "description": "Yêu tiểu tốt đi tuần núi dã ngoại chuyên báo tin."
+  },
+  {
+    "id": 5011,
+    "name": "Quan Thế Âm Bồ Tát",
+    "rarity": "Thần Thoại",
+    "faction": "Phật Gia",
+    "attack_type": "Phép Thuật",
+    "base_atk": 60,
+    "base_def": 50,
+    "base_hp": 800,
+    "description": "Phật tổ cứu khổ cứu nạn, có khả năng trị liệu tuyệt hảo cho toàn đội hình."
+  },
+  {
+    "id": 5012,
+    "name": "Đường Tam Tạng",
+    "rarity": "Cực Phẩm",
+    "faction": "Phật Gia",
+    "attack_type": "Phép Thuật",
+    "base_atk": 40,
+    "base_def": 48,
+    "base_hp": 620,
+    "description": "Kim Thiền Tử chuyển thế, tăng hào quang thuộc tính phòng thủ toàn diện cho đồng hành."
+  },
+  {
+    "id": 5013,
+    "name": "Thái Thượng Lão Quân",
+    "rarity": "Thần Thoại",
+    "faction": "Thần Tộc",
+    "attack_type": "Phép Thuật",
+    "base_atk": 80,
+    "base_def": 40,
+    "base_hp": 600,
+    "description": "Đạo tổ Cửu Trùng Thiên, sở hữu Lò Bát Quái và tiên đan tăng mạnh sức mạnh phép thuật."
+  },
+  {
+    "id": 5014,
+    "name": "Hằng Nga Tiên Tử",
+    "rarity": "Hiếm",
+    "faction": "Thần Tộc",
+    "attack_type": "Phép Thuật",
+    "base_atk": 45,
+    "base_def": 35,
+    "base_hp": 480,
+    "description": "Nữ thần ánh trăng múa khúc nghê thường tăng năng lượng chiến đấu cho toàn đội."
+  },
+  {
+    "id": 5015,
+    "name": "Bạch Long Mã",
+    "rarity": "Hiếm",
+    "faction": "Thần Tộc",
+    "attack_type": "Vật Lý",
+    "base_atk": 50,
+    "base_def": 38,
+    "base_hp": 520,
+    "description": "Tây Hải Tam Thái Tử hóa thân hộ tống Đường Tăng, tăng tốc độ ra chiêu."
+  }
+]

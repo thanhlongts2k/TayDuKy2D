@@ -1,0 +1,89 @@
+[
+  {
+    "id": 101,
+    "name": "Hội Bàn Đào",
+    "width": 24,
+    "height": 24,
+    "spawn_x": 12.0,
+    "spawn_y": 5.0,
+    "bg_resource_path": "Maps/hoi_ban_dao",
+    "obstacles": [
+      {"x": 5, "y": 5}, {"x": 5, "y": 6}, {"x": 6, "y": 5}, {"x": 6, "y": 6},
+      {"x": 18, "y": 5}, {"x": 18, "y": 6}, {"x": 17, "y": 5}, {"x": 17, "y": 6},
+      {"x": 8, "y": 15}, {"x": 9, "y": 15}, {"x": 8, "y": 16}, {"x": 9, "y": 16}
+    ],
+    "npcs": [
+      {
+        "id": 1001,
+        "name": "Đồng Tử",
+        "x": 12,
+        "y": 10,
+        "dialogue": "Chào mừng Thần Tiên hạ phàm! Ta sẽ hỗ trợ ngươi bắt đầu cuộc hành trình sơ nhập.",
+        "sprite_resource": "than_toc"
+      }
+    ],
+    "portals": [
+      {
+        "x": 12,
+        "y": 23,
+        "target_map_id": 102,
+        "target_x": 12.0,
+        "target_y": 2.0,
+        "stand_time": 1.5,
+        "trigger_distance": 1.0
+      }
+    ]
+  },
+  {
+    "id": 102,
+    "name": "Dao Trì",
+    "width": 24,
+    "height": 24,
+    "spawn_x": 12.0,
+    "spawn_y": 2.0,
+    "bg_resource_path": "Maps/dao_tri",
+    "obstacles": [
+      {"x": 8, "y": 8}, {"x": 8, "y": 9}, {"x": 9, "y": 8}, {"x": 9, "y": 9},
+      {"x": 16, "y": 8}, {"x": 16, "y": 9}, {"x": 15, "y": 8}, {"x": 15, "y": 9},
+      {"x": 8, "y": 18}, {"x": 8, "y": 19}, {"x": 9, "y": 18}, {"x": 9, "y": 19},
+      {"x": 16, "y": 18}, {"x": 16, "y": 19}, {"x": 15, "y": 18}, {"x": 15, "y": 19}
+    ],
+    "npcs": [
+      {
+        "id": 1003,
+        "name": "Tề Thiên Đại Thánh",
+        "x": 15,
+        "y": 15,
+        "dialogue": "Lão Tôn bị giam cầm ở đây đã lâu. Ngươi có muốn giúp ta tháo gỡ Phong Ấn xích thần?",
+        "sprite_resource": "yeu_toc"
+      },
+      {
+        "id": 1004,
+        "name": "Thiên Bồng",
+        "x": 8,
+        "y": 15,
+        "dialogue": "Hội Bàn Đào náo nhiệt, nhưng lòng ta chỉ hướng về Hằng Nga tiên tử...",
+        "sprite_resource": "than_toc"
+      },
+      {
+        "id": 1005,
+        "name": "Quyển Liêm",
+        "x": 22,
+        "y": 15,
+        "dialogue": "Lưu ly chén vỡ, ta bị đày xuống chốn phàm trần này tu tâm tích đức.",
+        "sprite_resource": "ma_toc"
+      }
+    ],
+    "portals": [
+      {
+        "x": 12,
+        "y": 0,
+        "target_map_id": 101,
+        "target_x": 12.0,
+        "target_y": 20.0,
+        "stand_time": 1.5,
+        "trigger_distance": 1.0
+      }
+    ]
+  }
+]

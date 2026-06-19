@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package proto;
+
+option go_package = "./proto";
+
+message MoveRequest {
+    int32 character_id = 1;
+    int32 target_x = 2;
+    int32 target_y = 3;
+    string direction = 4;
+    bool is_riding = 5;
+}
+
+message MoveResponse {
+    int32 character_id = 1;
+    string name = 2;
+    int32 current_x = 3;
+    int32 current_y = 4;
+    string direction = 5;
+    string mount_type = 6;
+    int64 timestamp = 7;
+}
+
+message ChatMessage {
+    int32 sender_id = 1;
+    string sender_name = 2;
+    string chat_channel = 3;
+    string message = 4;
+    int64 timestamp = 5;
+}

@@ -1,0 +1,122 @@
+[
+  {
+    "id": 1,
+    "name": "Náo Loạn Đào Viên",
+    "min_level": 1,
+    "npc_giver": "Đồng Tử",
+    "target_count": 5,
+    "target_name": "Yêu Hoa",
+    "reward_exp": 100,
+    "reward_gold": 10
+  },
+  {
+    "id": 2,
+    "name": "Quả Đào Đầu Tiên",
+    "min_level": 2,
+    "npc_giver": "Đồng Tử",
+    "target_count": 3,
+    "target_name": "Đào Tiên",
+    "reward_exp": 150,
+    "reward_gold": 15
+  },
+  {
+    "id": 3,
+    "name": "Oan Khuất Dao Trì",
+    "min_level": 3,
+    "npc_giver": "Tề Thiên Đại Thánh",
+    "target_count": 1,
+    "target_name": "Thiên Bồng",
+    "reward_exp": 200,
+    "reward_gold": 20
+  },
+  {
+    "id": 4,
+    "name": "Mảnh Xích Giam Cầm",
+    "min_level": 5,
+    "npc_giver": "Tề Thiên Đại Thánh",
+    "target_count": 5,
+    "target_name": "Thiên Binh Tập Sự",
+    "reward_exp": 500,
+    "reward_gold": 50
+  },
+  {
+    "id": 5,
+    "name": "Khuyên Giải Sa Tăng",
+    "min_level": 7,
+    "npc_giver": "Quyển Liêm",
+    "target_count": 1,
+    "target_name": "Chén Lưu Ly",
+    "reward_exp": 800,
+    "reward_gold": 80
+  },
+  {
+    "id": 6,
+    "name": "Chiếu Thư Hạ Phàm",
+    "min_level": 9,
+    "npc_giver": "Không Tiên",
+    "target_count": 3,
+    "target_name": "Thiên Binh Tuần Tra",
+    "reward_exp": 1200,
+    "reward_gold": 100
+  },
+  {
+    "id": 7,
+    "name": "Kiến Diện Đường Vương",
+    "min_level": 10,
+    "npc_giver": "Đường Thái Tông",
+    "target_count": 1,
+    "target_name": "Đoàn Thỉnh Kinh",
+    "reward_exp": 1500,
+    "reward_gold": 150
+  },
+  {
+    "id": 8,
+    "name": "Cứu Nguy Cao Gia",
+    "min_level": 12,
+    "npc_giver": "Trưởng Thôn Cao",
+    "target_count": 10,
+    "target_name": "Yêu Heo Con",
+    "reward_exp": 2000,
+    "reward_gold": 200
+  },
+  {
+    "id": 9,
+    "name": "Thu Phục Bát Giới",
+    "min_level": 14,
+    "npc_giver": "Trưởng Thôn Cao",
+    "target_count": 1,
+    "target_name": "Trư Bát Giới",
+    "reward_exp": 3000,
+    "reward_gold": 300
+  },
+  {
+    "id": 10,
+    "name": "Hoa Quả Sơn Viễn Chinh",
+    "min_level": 16,
+    "npc_giver": "Tề Thiên Đại Thánh",
+    "target_count": 15,
+    "target_name": "Yêu Hầu Gậy",
+    "reward_exp": 4500,
+    "reward_gold": 400
+  },
+  {
+    "id": 11,
+    "name": "Khai Thác Tinh Kho",
+    "min_level": 20,
+    "npc_giver": "Thợ Rèn",
+    "target_count": 10,
+    "target_name": "Tinh Quặng Sắt",
+    "reward_exp": 6000,
+    "reward_gold": 500
+  },
+  {
+    "id": 12,
+    "name": "Long Cung Rẽ Nước",
+    "min_level": 26,
+    "npc_giver": "Bồ Tát Quan Âm",
+    "target_count": 20,
+    "target_name": "Tuần Biển Dạ Soa",
+    "reward_exp": 10000,
+    "reward_gold": 1000
+  }
+]

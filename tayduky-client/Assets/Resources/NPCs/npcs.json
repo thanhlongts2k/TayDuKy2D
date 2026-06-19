@@ -1,0 +1,56 @@
+[
+  {
+    "id": 1001,
+    "name": "Đồng Tử",
+    "map_id": 101,
+    "pos_x": 12,
+    "pos_y": 10,
+    "sprite_asset": "npc_dong_tu",
+    "dialogue": "Chào mừng Thượng Tiên hạ phàm! Hãy đến gặp Tề Thiên Đại Thánh đang chịu phạt ở Dao Trì."
+  },
+  {
+    "id": 1002,
+    "name": "Không Tiên",
+    "map_id": 103,
+    "pos_x": 25,
+    "pos_y": 18,
+    "sprite_asset": "npc_khong_tien",
+    "dialogue": "Muốn tu tiên đắc đạo, trước tiên phải chọn thế lực của mình. Hãy chọn nhập vào tộc nào?"
+  },
+  {
+    "id": 1003,
+    "name": "Tề Thiên Đại Thánh",
+    "map_id": 102,
+    "pos_x": 15,
+    "pos_y": 15,
+    "sprite_asset": "npc_ton_ngo_khong_tied",
+    "dialogue": "Ta bị giam cầm ở đây đã lâu. Ngươi có thể giúp ta mở xích phong ấn này không?"
+  },
+  {
+    "id": 1004,
+    "name": "Thiên Bồng",
+    "map_id": 102,
+    "pos_x": 8,
+    "pos_y": 15,
+    "sprite_asset": "npc_tru_bat_gioi_tied",
+    "dialogue": "Hằng Nga muội muội... Ta nhớ nàng quá! Nước da heo này lạnh quá đi mất."
+  },
+  {
+    "id": 1005,
+    "name": "Quyển Liêm",
+    "map_id": 102,
+    "pos_x": 22,
+    "pos_y": 15,
+    "sprite_asset": "npc_sa_tang_tied",
+    "dialogue": "Ta chỉ lỡ tay làm vỡ cái chén lưu ly... Sao Ngọc Đế lại đày đọa ta thế này?"
+  },
+  {
+    "id": 2001,
+    "name": "Đường Thái Tông",
+    "map_id": 201,
+    "pos_x": 15,
+    "pos_y": 25,
+    "sprite_asset": "npc_duong_thai_tong",
+    "dialogue": "Đường Tam Tạng hiền đệ đã lên đường thỉnh kinh. Mong chư vị tiên nhân bảo phò hiền đệ an toàn."
+  }
+]

@@ -1,0 +1,34 @@
+[
+  {
+    "id": 1,
+    "name": "Bạch Hổ Đao",
+    "type": "WEAPON",
+    "required_level": 30,
+    "attack_bonus": 120,
+    "description": "Thần binh sắc bén khắc họa hổ gầm."
+  },
+  {
+    "id": 2,
+    "name": "Tiên Dược Hồi Phục",
+    "type": "CONSUMABLE",
+    "required_level": 1,
+    "hp_heal": 200,
+    "description": "Tiên dược chế tác từ Linh Chi Đa Mỹ Mỹ hồi phục 200 HP."
+  },
+  {
+    "id": 3,
+    "name": "U Minh Bạch Hổ",
+    "type": "MOUNT",
+    "required_level": 30,
+    "speed_bonus": 30,
+    "description": "Tọa kỵ Bạch hổ dũng mãnh trên cạn."
+  },
+  {
+    "id": 4,
+    "name": "Lục Bảo Phi Kiếm",
+    "type": "MOUNT",
+    "required_level": 30,
+    "speed_bonus": 35,
+    "description": "Phi kiếm ngự không phát sáng lục bảo."
+  }
+]
