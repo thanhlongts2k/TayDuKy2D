@@ -30,6 +30,14 @@ namespace TayDuKy.UI
         [SerializeField] private GameObject characterCreationPanel;
         [SerializeField] private GameObject worldPanel;
 
+        [Header("Combat UI Elements")]
+        [SerializeField] private GameObject combatPanel;
+        [SerializeField] private Text combatPlayerNameText;
+        [SerializeField] private Text combatEnemyNameText;
+        [SerializeField] private Slider combatPlayerHpSlider;
+        [SerializeField] private Slider combatEnemyHpSlider;
+        [SerializeField] private Text combatLogText;
+
         private void Awake()
         {
             if (Instance == null)
@@ -47,6 +55,22 @@ namespace TayDuKy.UI
         {
             Debug.Log($"UIManager: Start called. loginPanel={loginPanel}, characterCreationPanel={characterCreationPanel}, worldPanel={worldPanel}");
             ShowLogin();
+
+            // Programmatically bind combat buttons
+            Button attackBtn = GameObject.Find("BtnAttack")?.GetComponent<Button>();
+            if (attackBtn != null)
+            {
+                attackBtn.onClick.AddListener(() => {
+                    if (Managers.CombatManager.Instance != null) Managers.CombatManager.Instance.SendAttackCommand();
+                });
+            }
+            Button fleeBtn = GameObject.Find("BtnFlee")?.GetComponent<Button>();
+            if (fleeBtn != null)
+            {
+                fleeBtn.onClick.AddListener(() => {
+                    if (Managers.CombatManager.Instance != null) Managers.CombatManager.Instance.EndCombat(false);
+                });
+            }
         }
 
         public void ShowLogin()
@@ -228,6 +252,34 @@ namespace TayDuKy.UI
                 Managers.MountAndPetManager.Instance.UnequipMount();
                 AppendChatMessage("Hệ thống", "Đã xuống thú cưỡi.");
             }
+            else if (cmd == "/combat")
+            {
+                if (Managers.CombatManager.Instance != null)
+                {
+                    var p = new Managers.CombatManager.CombatActor
+                    {
+                        id = Managers.ChatManager.Instance.CharacterId,
+                        name = Managers.ChatManager.Instance.CharacterName,
+                        faction = "Thần Tộc",
+                        level = 32,
+                        hpCurrent = 100,
+                        hpMax = 100
+                    };
+
+                    var e = new Managers.CombatManager.CombatActor
+                    {
+                        id = 999,
+                        name = "Tiểu Toàn Phong",
+                        faction = "Yêu Tộc",
+                        level = 15,
+                        hpCurrent = 60,
+                        hpMax = 60
+                    };
+
+                    Managers.CombatManager.Instance.StartCombat(p, e);
+                    AppendChatMessage("Hệ thống", "Đã khởi chạy trận đấu thử nghiệm!");
+                }
+            }
             else
             {
                 AppendChatMessage("Hệ thống", $"Không tìm thấy lệnh phát triển: {cmd}");
@@ -254,6 +306,41 @@ namespace TayDuKy.UI
                     panel.SetActive(false);
                 }
             }
+        }
+
+        public void ShowCombat(bool visible)
+        {
+            if (combatPanel != null) combatPanel.SetActive(visible);
+            if (worldPanel != null) worldPanel.SetActive(!visible);
+        }
+
+        public void UpdateCombatStats(string pName, int pHp, int pHpMax, string eName, int eHp, int eHpMax)
+        {
+            if (combatPlayerNameText != null) combatPlayerNameText.text = pName;
+            if (combatEnemyNameText != null) combatEnemyNameText.text = eName;
+            if (combatPlayerHpSlider != null)
+            {
+                combatPlayerHpSlider.maxValue = pHpMax;
+                combatPlayerHpSlider.value = pHp;
+            }
+            if (combatEnemyHpSlider != null)
+            {
+                combatEnemyHpSlider.maxValue = eHpMax;
+                combatEnemyHpSlider.value = eHp;
+            }
+        }
+
+        public void LogCombatMessage(string msg)
+        {
+            if (combatLogText != null)
+            {
+                combatLogText.text += $"\n{msg}";
+            }
+        }
+
+        public void ClearCombatLog()
+        {
+            if (combatLogText != null) combatLogText.text = "Bắt đầu trận đấu!";
         }
     }
 }

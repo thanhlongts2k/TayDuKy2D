@@ -20,8 +20,8 @@ namespace TayDuKy.Managers
             public long timestamp;
         }
 
-        private int mockCharacterId = 1024;
-        private string mockCharacterName = "shinichi";
+        public int CharacterId { get; set; } = 1024;
+        public string CharacterName { get; set; } = "shinichi";
 
         private void Awake()
         {
@@ -41,7 +41,7 @@ namespace TayDuKy.Managers
             if (string.IsNullOrEmpty(content)) return;
 
             // Prepare JSON payload for Action ID 1005
-            string chatPayload = $"{{\"action_id\": 1005, \"sender_id\": {mockCharacterId}, \"sender_name\": \"{mockCharacterName}\", \"chat_channel\": \"WORLD\", \"message\": \"{content}\", \"timestamp\": {DateTimeOffset.UtcNow.ToUnixTimeSeconds()}}}";
+            string chatPayload = $"{{\"action_id\": 1005, \"sender_id\": {CharacterId}, \"sender_name\": \"{CharacterName}\", \"chat_channel\": \"WORLD\", \"message\": \"{content}\", \"timestamp\": {DateTimeOffset.UtcNow.ToUnixTimeSeconds()}}}";
 
             if (NetworkClient.Instance != null)
             {

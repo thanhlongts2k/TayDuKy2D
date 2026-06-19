@@ -53,7 +53,17 @@ namespace TayDuKy.Managers
             enemyActor = enemy;
             isInCombat = true;
             Debug.Log($"Entered turn-based combat with {enemy.name} (Level {enemy.level})");
-            // Trigger UI transitions here
+            
+            if (TayDuKy.UI.UIManager.Instance != null)
+            {
+                TayDuKy.UI.UIManager.Instance.ShowCombat(true);
+                TayDuKy.UI.UIManager.Instance.ClearCombatLog();
+                TayDuKy.UI.UIManager.Instance.UpdateCombatStats(
+                    player.name, player.hpCurrent, player.hpMax,
+                    enemy.name, enemy.hpCurrent, enemy.hpMax
+                );
+                TayDuKy.UI.UIManager.Instance.LogCombatMessage($"Gặp gỡ yêu quái {enemy.name}! Trận chiến bắt đầu.");
+            }
         }
 
         public void SendAttackCommand()
@@ -77,24 +87,33 @@ namespace TayDuKy.Managers
             {
                 AttackResult result = JsonUtility.FromJson<AttackResult>(jsonResult);
                 
+                string logMsg = "";
+                
                 // Update actor HP in local registry
                 if (result.target_id == playerActor.id)
                 {
                     playerActor.hpCurrent -= result.damage;
                     if (playerActor.hpCurrent < 0) playerActor.hpCurrent = 0;
-                    Debug.Log($"Player received {result.damage} damage! Remaining HP: {playerActor.hpCurrent}");
+                    
+                    string critSuffix = result.is_crit ? " bạo kích!" : "";
+                    logMsg = $"{enemyActor.name} gây {result.damage} sát thương{critSuffix} lên {playerActor.name}.";
                 }
                 else if (result.target_id == enemyActor.id)
                 {
                     enemyActor.hpCurrent -= result.damage;
                     if (enemyActor.hpCurrent < 0) enemyActor.hpCurrent = 0;
-                    Debug.Log($"Enemy received {result.damage} damage! Remaining HP: {enemyActor.hpCurrent}");
+                    
+                    string critSuffix = result.is_crit ? " bạo kích!" : "";
+                    logMsg = $"{playerActor.name} gây {result.damage} sát thương{critSuffix} lên {enemyActor.name}.";
                 }
 
-                // Trigger visual hits, crit text, and update UI health bars
-                if (result.is_crit)
+                if (TayDuKy.UI.UIManager.Instance != null)
                 {
-                    Debug.Log("CRITICAL HIT!");
+                    TayDuKy.UI.UIManager.Instance.LogCombatMessage(logMsg);
+                    TayDuKy.UI.UIManager.Instance.UpdateCombatStats(
+                        playerActor.name, playerActor.hpCurrent, playerActor.hpMax,
+                        enemyActor.name, enemyActor.hpCurrent, enemyActor.hpMax
+                    );
                 }
 
                 if (result.is_dead)
@@ -111,17 +130,24 @@ namespace TayDuKy.Managers
         public void EndCombat(bool didPlayerWin)
         {
             isInCombat = false;
+            string finalMsg = "";
             if (didPlayerWin)
             {
-                Debug.Log("Victory! Player defeated the monster.");
-                // Award loot, gold, and exp
+                finalMsg = "Chiến thắng! Tiêu diệt yêu quái thành công.";
+                Debug.Log(finalMsg);
             }
             else
             {
-                Debug.Log("Defeat! Player died. Returning to town...");
-                // Resurrect player
+                finalMsg = "Thất bại! Sức cùng lực kiệt, hãy quay lại dưỡng thương.";
+                Debug.Log(finalMsg);
             }
-            // Trigger UI transitions back to WorldMap
+
+            if (TayDuKy.UI.UIManager.Instance != null)
+            {
+                TayDuKy.UI.UIManager.Instance.LogCombatMessage(finalMsg);
+                // Return to world map after a small delay
+                TayDuKy.UI.UIManager.Instance.Invoke("ShowWorld", 1.5f);
+            }
         }
     }
 }

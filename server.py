@@ -1,7 +1,6 @@
-import socket
+import asyncio
 import json
 import math
-import threading
 import time
 import random
 import os
@@ -28,9 +27,8 @@ HOST = '0.0.0.0'
 PORT = 8080
 MAX_MOVE_SPEED = 10.0 # Maximum grid tile distance allowed per move packet
 
-# Thread-safe lists for connected clients and game states
+# List of active client writers
 clients = []
-clients_lock = threading.Lock()
 
 # In-memory database
 accounts = {
@@ -65,24 +63,30 @@ monster_stats = {
     999: {"name": "Tiểu Toàn Phong", "level": 15, "hp": 60, "hp_max": 60, "faction": "Yêu Tộc", "crit_rate": 0.05, "attack": 12, "defense": 5}
 }
 
-def broadcast(payload_str, exclude_conn=None):
-    """Broadcasts a JSON string to all connected TCP clients."""
-    with clients_lock:
-        for client in clients:
-            if client != exclude_conn:
-                try:
-                    client.sendall(payload_str.encode('utf-8'))
-                except Exception:
-                    pass
+async def broadcast(payload_str, exclude_writer=None):
+    """Broadcasts a JSON string to all connected asyncio TCP clients."""
+    data = payload_str.encode('utf-8')
+    disconnected_clients = []
+    for writer in clients:
+        if writer != exclude_writer:
+            try:
+                writer.write(data)
+                await writer.drain()
+            except Exception:
+                disconnected_clients.append(writer)
+    
+    for writer in disconnected_clients:
+        if writer in clients:
+            clients.remove(writer)
 
-def handle_client(conn, addr):
+async def handle_client(reader, writer):
+    addr = writer.get_extra_info('peername')
     print(f"[CONNECTED] New client joined from {addr}")
-    with clients_lock:
-        clients.append(conn)
+    clients.append(writer)
 
     try:
         while True:
-            data = conn.recv(4096)
+            data = await reader.read(4096)
             if not data:
                 break
             
@@ -94,23 +98,23 @@ def handle_client(conn, addr):
                 action_id = packet.get("action_id")
                 
                 if action_id == 1000:
-                    handle_login(packet, conn)
+                    await handle_login(packet, writer)
                 elif action_id == 1004:
-                    handle_register(packet, conn)
+                    await handle_register(packet, writer)
                 elif action_id == 1003:
-                    handle_create_character(packet, conn)
+                    await handle_create_character(packet, writer)
                 elif action_id == 1001:
-                    handle_move(packet, conn)
+                    await handle_move(packet, writer)
                 elif action_id == 1002:
-                    handle_combat(packet, conn)
+                    await handle_combat(packet, writer)
                 elif action_id == 1005:
-                    handle_chat(packet, conn)
+                    await handle_chat(packet, writer)
                 elif action_id == 1008:
-                    handle_quest(packet, conn)
+                    await handle_quest(packet, writer)
                 elif action_id == 1010:
-                    handle_mount(packet, conn)
+                    await handle_mount(packet, writer)
                 elif action_id == 1011:
-                    handle_pet(packet, conn)
+                    await handle_pet(packet, writer)
                 else:
                     print(f"[WARNING] Unknown action_id: {action_id}")
             except json.JSONDecodeError:
@@ -118,13 +122,21 @@ def handle_client(conn, addr):
     except Exception as e:
         print(f"[ERROR] Client connection exception: {e}")
     finally:
-        with clients_lock:
-            if conn in clients:
-                clients.remove(conn)
-        conn.close()
+        if writer in clients:
+            clients.remove(writer)
+        writer.close()
+        await writer.wait_closed()
         print(f"[DISCONNECTED] Client {addr} left")
 
-def handle_login(packet, conn):
+async def send_response(writer, payload):
+    try:
+        data = json.dumps(payload).encode('utf-8')
+        writer.write(data)
+        await writer.drain()
+    except Exception as e:
+        print(f"[ERROR] Failed to send response: {e}")
+
+async def handle_login(packet, writer):
     username = packet.get("username")
     password = packet.get("password")
     
@@ -163,9 +175,9 @@ def handle_login(packet, conn):
             "message": "Sai tài khoản hoặc mật khẩu!"
         }
         
-    conn.sendall(json.dumps(response).encode('utf-8'))
+    await send_response(writer, response)
 
-def handle_register(packet, conn):
+async def handle_register(packet, writer):
     username = packet.get("username")
     password = packet.get("password")
     
@@ -187,9 +199,9 @@ def handle_register(packet, conn):
         }
         print(f"[REGISTER SUCCESS] Registered new account: {username}")
         
-    conn.sendall(json.dumps(response).encode('utf-8'))
+    await send_response(writer, response)
 
-def handle_create_character(packet, conn):
+async def handle_create_character(packet, writer):
     username = packet.get("username")
     name = packet.get("name")
     faction = packet.get("faction", "Thần Tộc")
@@ -211,7 +223,7 @@ def handle_create_character(packet, conn):
         # Create character
         char_id = 1000 + len(player_stats) + 1
         
-        # Fine-grained base stats according to Faction & Class
+        # Fine-grained base stats according to selected playable class
         stats = {
             "name": name,
             "level": 1,
@@ -220,7 +232,6 @@ def handle_create_character(packet, conn):
             "gender": gender
         }
 
-        # Fine-grained base stats according to selected playable class
         if char_class == "Kiếm Tiên":
             stats.update({"hp": 120, "hp_max": 120, "crit_rate": 0.12, "attack": 22, "defense": 12, "exp": 0, "gold": 0})
         elif char_class == "Pháp Sư":
@@ -238,7 +249,7 @@ def handle_create_character(packet, conn):
             
         player_stats[char_id] = stats
         account_characters[username] = char_id
-        player_positions[char_id] = (0, 0)
+        player_positions[char_id] = (101, 12, 5) # Default to map 101, x=12, y=5
         
         response = {
             "action_id": 2003,
@@ -254,9 +265,9 @@ def handle_create_character(packet, conn):
         }
         print(f"[CREATE CHAR SUCCESS] Character created for {username}: {name} (ID: {char_id}, Class: {char_class})")
         
-    conn.sendall(json.dumps(response).encode('utf-8'))
+    await send_response(writer, response)
 
-def handle_move(packet, conn):
+async def handle_move(packet, writer):
     char_id = packet.get("character_id")
     map_id = packet.get("map_id", 101)
     target_x = packet.get("target_x")
@@ -294,9 +305,9 @@ def handle_move(packet, conn):
         "mount_type": "Hỏa Kỳ Lân" if is_riding else "Chân chạy",
         "timestamp": int(time.time())
     }
-    broadcast(json.dumps(response), exclude_conn=conn)
+    await broadcast(json.dumps(response), exclude_writer=writer)
 
-def handle_combat(packet, conn):
+async def handle_combat(packet, writer):
     attacker_id = packet.get("attacker_id")
     target_id = packet.get("target_id")
 
@@ -348,9 +359,9 @@ def handle_combat(packet, conn):
         "is_crit": is_crit,
         "is_dead": is_dead
     }
-    conn.sendall(json.dumps(response).encode('utf-8'))
+    await send_response(writer, response)
 
-def handle_chat(packet, conn):
+async def handle_chat(packet, writer):
     sender_name = packet.get("sender_name")
     channel = packet.get("chat_channel")
     message = packet.get("message")
@@ -365,9 +376,9 @@ def handle_chat(packet, conn):
         "message": message,
         "timestamp": int(time.time())
     }
-    broadcast(json.dumps(response))
+    await broadcast(json.dumps(response))
 
-def handle_quest(packet, conn):
+async def handle_quest(packet, writer):
     char_id = packet.get("character_id", 1024)
     quest_id = packet.get("quest_id")
     status = packet.get("status")
@@ -448,7 +459,7 @@ def handle_quest(packet, conn):
                 "gold": stats["gold"],
                 "message": message
             }
-            conn.sendall(json.dumps(response).encode('utf-8'))
+            await send_response(writer, response)
             return
             
     # Send simple sync response if in-progress
@@ -464,36 +475,28 @@ def handle_quest(packet, conn):
         "gold": stats.get("gold", 0),
         "message": message
     }
-    conn.sendall(json.dumps(response).encode('utf-8'))
+    await send_response(writer, response)
 
-def handle_mount(packet, conn):
+async def handle_mount(packet, writer):
     mount_id = packet.get("mount_id")
     state = packet.get("is_equipped")
     print(f"[MOUNT] Player changed mount {mount_id} state to Equipped={state}")
 
-def handle_pet(packet, conn):
+async def handle_pet(packet, writer):
     pet_id = packet.get("pet_id")
     state = packet.get("is_summoned")
     print(f"[PET] Player changed pet {pet_id} state to Summoned={state}")
 
-def main():
-    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+async def main():
+    server = await asyncio.start_server(handle_client, HOST, PORT)
+    addr = server.sockets[0].getsockname()
+    print(f"[START] Tay Du Ky Mobile Python Asyncio Server listening on {addr}")
     
-    try:
-        server.bind((HOST, PORT))
-        server.listen()
-        print(f"[START] Tay Du Ky Mobile Python Server listening on {HOST}:{PORT}")
-        
-        while True:
-            conn, addr = server.accept()
-            thread = threading.Thread(target=handle_client, args=(conn, addr))
-            thread.daemon = True
-            thread.start()
-    except KeyboardInterrupt:
-        print("[SHUTDOWN] Stopping server...")
-    finally:
-        server.close()
+    async with server:
+        await server.serve_forever()
 
 if __name__ == "__main__":
-    main()
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("[SHUTDOWN] Stopping server...")

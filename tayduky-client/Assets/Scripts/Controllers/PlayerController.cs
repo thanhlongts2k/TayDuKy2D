@@ -35,6 +35,10 @@ namespace TayDuKy.Controllers
         public int CharacterId => characterId;
         public bool IsMoving => isMoving;
 
+        public Sprite[] ThanTocSprites => thanTocSprites;
+        public Sprite[] MaTocSprites => maTocSprites;
+        public Sprite[] YeuTocSprites => yeuTocSprites;
+
 
         public void SetCharacter(int id, string faction)
         {

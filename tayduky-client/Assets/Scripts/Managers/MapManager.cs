@@ -67,6 +67,8 @@ namespace TayDuKy.Managers
         public int ActiveMapId => activeMap != null ? activeMap.id : 101;
         public string ActiveMapName => activeMap != null ? activeMap.name : "Hội Bàn Đào";
 
+        private Dictionary<int, OtherPlayerController> otherPlayers = new Dictionary<int, OtherPlayerController>();
+
         private void Awake()
         {
             if (Instance == null)
@@ -219,12 +221,18 @@ namespace TayDuKy.Managers
                 Debug.LogError($"MapManager: Failed to load background sprite from: Resources/{activeMap.bg_resource_path}");
             }
 
-            // 2. Clear old NPCs
+            // 2. Clear old NPCs and other players
             foreach (var npc in activeNPCs)
             {
                 if (npc != null) Destroy(npc);
             }
             activeNPCs.Clear();
+
+            foreach (var op in otherPlayers.Values)
+            {
+                if (op != null) Destroy(op.gameObject);
+            }
+            otherPlayers.Clear();
 
             // 3. Spawn map NPCs
             PlayerController player = FindFirstObjectByType<PlayerController>();
@@ -278,6 +286,78 @@ namespace TayDuKy.Managers
             return true;
         }
 
+        [System.Serializable]
+        public class MoveEventResponse
+        {
+            public int action_id;
+            public int character_id;
+            public int map_id;
+            public string name;
+            public float current_x;
+            public float current_y;
+            public string direction;
+            public string mount_type;
+            public long timestamp;
+        }
 
+        public void OnOtherPlayerMoved(string jsonPayload)
+        {
+            try
+            {
+                MoveEventResponse response = JsonUtility.FromJson<MoveEventResponse>(jsonPayload);
+                if (response == null) return;
+
+                // 1. Check if they moved to a different map
+                if (response.map_id != ActiveMapId)
+                {
+                    if (otherPlayers.ContainsKey(response.character_id))
+                    {
+                        Destroy(otherPlayers[response.character_id].gameObject);
+                        otherPlayers.Remove(response.character_id);
+                    }
+                    return;
+                }
+
+                // 2. Skip if it is local player
+                PlayerController localPlayer = FindFirstObjectByType<PlayerController>();
+                if (localPlayer != null && response.character_id == localPlayer.CharacterId)
+                {
+                    return;
+                }
+
+                Vector3 targetPos = new Vector3(response.current_x, response.current_y, 0f);
+
+                // 3. Spawn other player if they are not tracked yet
+                if (!otherPlayers.ContainsKey(response.character_id))
+                {
+                    GameObject obj = new GameObject($"OtherPlayer_{response.name}_{response.character_id}");
+                    var sr = obj.AddComponent<SpriteRenderer>();
+                    sr.sortingOrder = 3; // Render same layer as player
+
+                    var otherCtrl = obj.AddComponent<OtherPlayerController>();
+                    if (localPlayer != null)
+                    {
+                        otherCtrl.SetSpriteSheets(localPlayer.ThanTocSprites, localPlayer.MaTocSprites, localPlayer.YeuTocSprites);
+                    }
+
+                    // For prototype: we assume faction name is determined by sprite configuration or default Thần Tộc
+                    string factionName = "Thần Tộc";
+                    otherCtrl.SetCharacter(response.character_id, response.name, factionName);
+                    otherCtrl.TeleportTo(targetPos);
+                    otherPlayers[response.character_id] = otherCtrl;
+                    
+                    Debug.Log($"MapManager: Spawned new player '{response.name}' (ID: {response.character_id}) at ({response.current_x}, {response.current_y})");
+                }
+                else
+                {
+                    // 4. Move existing player
+                    otherPlayers[response.character_id].MoveTo(targetPos, response.direction);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"Error on other player move: {ex.Message}");
+            }
+        }
     }
 }

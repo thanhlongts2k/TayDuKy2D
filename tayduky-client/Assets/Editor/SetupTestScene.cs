@@ -487,6 +487,134 @@ namespace TayDuKy.Editor
 
             Debug.Log("Editor: Generated Chat box and InputField UI components.");
 
+            // ==========================================
+            // D. CREATE COMBAT PANEL
+            // ==========================================
+            GameObject combatPanelObj = new GameObject("CombatPanel");
+            combatPanelObj.transform.SetParent(canvasObj.transform, false);
+            var combatRect = combatPanelObj.AddComponent<RectTransform>();
+            combatRect.anchorMin = Vector2.zero;
+            combatRect.anchorMax = Vector2.one;
+            combatRect.sizeDelta = Vector2.zero;
+            var combatBg = combatPanelObj.AddComponent<Image>();
+            combatBg.color = new Color(0.2f, 0.15f, 0.1f, 1f); // Dark gold-brown theme
+            combatPanelObj.SetActive(false); // Default hidden
+
+            // Player Name Text
+            GameObject cPlayerNameObj = new GameObject("CombatPlayerName");
+            cPlayerNameObj.transform.SetParent(combatPanelObj.transform, false);
+            Text cPlayerNameTxt = cPlayerNameObj.AddComponent<Text>();
+            cPlayerNameTxt.text = "Người chơi";
+            cPlayerNameTxt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            cPlayerNameTxt.fontSize = 16;
+            cPlayerNameTxt.color = Color.white;
+            cPlayerNameTxt.alignment = TextAnchor.MiddleCenter;
+            var cpNameRect = cPlayerNameObj.GetComponent<RectTransform>();
+            cpNameRect.anchoredPosition = new Vector2(-80, 100);
+            cpNameRect.sizeDelta = new Vector2(120, 25);
+
+            // Player HP Slider in combat
+            GameObject cPlayerHpObj = new GameObject("CombatPlayerHpSlider");
+            cPlayerHpObj.transform.SetParent(combatPanelObj.transform, false);
+            Slider cPlayerHpSlider = cPlayerHpObj.AddComponent<Slider>();
+            cPlayerHpSlider.transition = Selectable.Transition.None;
+            var cpHpRect = cPlayerHpObj.GetComponent<RectTransform>();
+            cpHpRect.sizeDelta = new Vector2(100, 12);
+            cpHpRect.anchoredPosition = new Vector2(-80, 80);
+
+            GameObject cpHpBg = new GameObject("Background");
+            cpHpBg.transform.SetParent(cPlayerHpObj.transform, false);
+            Image cpHpBgImg = cpHpBg.AddComponent<Image>();
+            cpHpBgImg.color = Color.grey;
+            var cpHpBgRect = cpHpBg.GetComponent<RectTransform>();
+            cpHpBgRect.anchorMin = Vector2.zero;
+            cpHpBgRect.anchorMax = Vector2.one;
+            cpHpBgRect.sizeDelta = Vector2.zero;
+
+            GameObject cpHpFillArea = new GameObject("Fill Area");
+            cpHpFillArea.transform.SetParent(cPlayerHpObj.transform, false);
+            var cpHpFillAreaRect = cpHpFillArea.AddComponent<RectTransform>();
+            cpHpFillAreaRect.anchorMin = Vector2.zero;
+            cpHpFillAreaRect.anchorMax = Vector2.one;
+            cpHpFillAreaRect.sizeDelta = Vector2.zero;
+
+            GameObject cpHpFill = new GameObject("Fill");
+            cpHpFill.transform.SetParent(cpHpFillArea.transform, false);
+            Image cpHpFillImg = cpHpFill.AddComponent<Image>();
+            cpHpFillImg.color = Color.red;
+            var cpHpFillRect = cpHpFill.GetComponent<RectTransform>();
+            cpHpFillRect.anchorMin = Vector2.zero;
+            cpHpFillRect.anchorMax = new Vector2(1, 1);
+            cpHpFillRect.sizeDelta = Vector2.zero;
+            cPlayerHpSlider.fillRect = cpHpFillRect;
+
+            // Enemy Name Text
+            GameObject cEnemyNameObj = new GameObject("CombatEnemyName");
+            cEnemyNameObj.transform.SetParent(combatPanelObj.transform, false);
+            Text cEnemyNameTxt = cEnemyNameObj.AddComponent<Text>();
+            cEnemyNameTxt.text = "Quái vật";
+            cEnemyNameTxt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            cEnemyNameTxt.fontSize = 16;
+            cEnemyNameTxt.color = Color.yellow;
+            cEnemyNameTxt.alignment = TextAnchor.MiddleCenter;
+            var ceNameRect = cEnemyNameObj.GetComponent<RectTransform>();
+            ceNameRect.anchoredPosition = new Vector2(80, 100);
+            ceNameRect.sizeDelta = new Vector2(120, 25);
+
+            // Enemy HP Slider in combat
+            GameObject cEnemyHpObj = new GameObject("CombatEnemyHpSlider");
+            cEnemyHpObj.transform.SetParent(combatPanelObj.transform, false);
+            Slider cEnemyHpSlider = cEnemyHpObj.AddComponent<Slider>();
+            cEnemyHpSlider.transition = Selectable.Transition.None;
+            var ceHpRect = cEnemyHpObj.GetComponent<RectTransform>();
+            ceHpRect.sizeDelta = new Vector2(100, 12);
+            ceHpRect.anchoredPosition = new Vector2(80, 80);
+
+            GameObject ceHpBg = new GameObject("Background");
+            ceHpBg.transform.SetParent(cEnemyHpObj.transform, false);
+            Image ceHpBgImg = ceHpBg.AddComponent<Image>();
+            ceHpBgImg.color = Color.grey;
+            var ceHpBgRect = ceHpBg.GetComponent<RectTransform>();
+            ceHpBgRect.anchorMin = Vector2.zero;
+            ceHpBgRect.anchorMax = Vector2.one;
+            ceHpBgRect.sizeDelta = Vector2.zero;
+
+            GameObject ceHpFillArea = new GameObject("Fill Area");
+            ceHpFillArea.transform.SetParent(cEnemyHpObj.transform, false);
+            var ceHpFillAreaRect = ceHpFillArea.AddComponent<RectTransform>();
+            ceHpFillAreaRect.anchorMin = Vector2.zero;
+            ceHpFillAreaRect.anchorMax = Vector2.one;
+            ceHpFillAreaRect.sizeDelta = Vector2.zero;
+
+            GameObject ceHpFill = new GameObject("Fill");
+            ceHpFill.transform.SetParent(ceHpFillArea.transform, false);
+            Image ceHpFillImg = ceHpFill.AddComponent<Image>();
+            ceHpFillImg.color = Color.red;
+            var ceHpFillRect = ceHpFill.GetComponent<RectTransform>();
+            ceHpFillRect.anchorMin = Vector2.zero;
+            ceHpFillRect.anchorMax = new Vector2(1, 1);
+            ceHpFillRect.sizeDelta = Vector2.zero;
+            cEnemyHpSlider.fillRect = ceHpFillRect;
+
+            // Combat Log Text
+            GameObject cLogObj = new GameObject("CombatLogText");
+            cLogObj.transform.SetParent(combatPanelObj.transform, false);
+            Text cLogTxt = cLogObj.AddComponent<Text>();
+            cLogTxt.text = "Bắt đầu trận đấu!";
+            cLogTxt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            cLogTxt.fontSize = 13;
+            cLogTxt.color = Color.green;
+            cLogTxt.alignment = TextAnchor.UpperLeft;
+            var clRect = cLogObj.GetComponent<RectTransform>();
+            clRect.anchoredPosition = new Vector2(0, -10);
+            clRect.sizeDelta = new Vector2(260, 100);
+
+            // Action Buttons
+            GameObject btnAttackObj = CreateUIButton("BtnAttack", combatPanelObj.transform, "TẤN CÔNG", Color.red, new Vector2(-60, -120), new Vector2(100, 35));
+            GameObject btnFleeObj = CreateUIButton("BtnFlee", combatPanelObj.transform, "CHẠY TRỐN", Color.gray, new Vector2(60, -120), new Vector2(100, 35));
+
+            Debug.Log("Editor: Generated CombatPanel UI components.");
+
             // 7. Bind references in UIManager
             SerializedObject serializedUIManager = new SerializedObject(uiManager);
             serializedUIManager.FindProperty("hpSlider").objectReferenceValue = hpSlider;
@@ -501,6 +629,15 @@ namespace TayDuKy.Editor
             serializedUIManager.FindProperty("loginPanel").objectReferenceValue = loginPanelObj;
             serializedUIManager.FindProperty("characterCreationPanel").objectReferenceValue = ccPanelObj;
             serializedUIManager.FindProperty("worldPanel").objectReferenceValue = worldPanelObj;
+
+            // Bind Combat UI properties
+            serializedUIManager.FindProperty("combatPanel").objectReferenceValue = combatPanelObj;
+            serializedUIManager.FindProperty("combatPlayerNameText").objectReferenceValue = cPlayerNameTxt;
+            serializedUIManager.FindProperty("combatEnemyNameText").objectReferenceValue = cEnemyNameTxt;
+            serializedUIManager.FindProperty("combatPlayerHpSlider").objectReferenceValue = cPlayerHpSlider;
+            serializedUIManager.FindProperty("combatEnemyHpSlider").objectReferenceValue = cEnemyHpSlider;
+            serializedUIManager.FindProperty("combatLogText").objectReferenceValue = cLogTxt;
+
             serializedUIManager.ApplyModifiedProperties();
 
             // 8. Save the Scene

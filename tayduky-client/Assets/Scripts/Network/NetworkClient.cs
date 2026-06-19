@@ -199,6 +199,12 @@ namespace TayDuKy.Network
                                 player.SetCharacter(loginResp.character_id, loginResp.faction);
                             }
 
+                            if (TayDuKy.Managers.ChatManager.Instance != null)
+                            {
+                                TayDuKy.Managers.ChatManager.Instance.CharacterId = loginResp.character_id;
+                                TayDuKy.Managers.ChatManager.Instance.CharacterName = loginResp.name;
+                            }
+
                             // Lưu trữ thông số nhân vật và chuyển vào Game World
                             if (TayDuKy.UI.UIManager.Instance != null)
                             {
@@ -237,6 +243,12 @@ namespace TayDuKy.Network
                             player.SetCharacter(createResp.character_id, createResp.faction);
                         }
 
+                        if (TayDuKy.Managers.ChatManager.Instance != null)
+                        {
+                            TayDuKy.Managers.ChatManager.Instance.CharacterId = createResp.character_id;
+                            TayDuKy.Managers.ChatManager.Instance.CharacterName = createResp.name;
+                        }
+
                         if (TayDuKy.UI.UIManager.Instance != null)
                         {
                             TayDuKy.UI.UIManager.Instance.UpdateCharacterStats(
@@ -268,6 +280,27 @@ namespace TayDuKy.Network
                         TayDuKy.UI.UIManager.Instance.UpdateCharacterStats(
                             questResp.name, questResp.level, questResp.hp, questResp.hp_max, 50, 50
                         );
+                    }
+                }
+                else if (baseResp.action_id == 2001) // Move Event Response
+                {
+                    if (TayDuKy.Managers.MapManager.Instance != null)
+                    {
+                        TayDuKy.Managers.MapManager.Instance.OnOtherPlayerMoved(json);
+                    }
+                }
+                else if (baseResp.action_id == 2002) // Combat Result Response
+                {
+                    if (TayDuKy.Managers.CombatManager.Instance != null)
+                    {
+                        TayDuKy.Managers.CombatManager.Instance.OnReceiveAttackResult(json);
+                    }
+                }
+                else if (baseResp.action_id == 2005) // Chat Broadcast Response
+                {
+                    if (TayDuKy.Managers.ChatManager.Instance != null)
+                    {
+                        TayDuKy.Managers.ChatManager.Instance.OnReceiveChatPacket(json);
                     }
                 }
             }
