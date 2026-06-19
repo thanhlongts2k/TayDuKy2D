@@ -196,7 +196,7 @@ namespace TayDuKy.Network
                             var player = FindFirstObjectByType<TayDuKy.Controllers.PlayerController>();
                             if (player != null)
                             {
-                                player.SetCharacter(loginResp.character_id, loginResp.faction);
+                                player.SetCharacter(loginResp.character_id, loginResp.faction, loginResp.name, loginResp.level);
                             }
 
                             if (TayDuKy.Managers.ChatManager.Instance != null)
@@ -240,7 +240,7 @@ namespace TayDuKy.Network
                         var player = FindFirstObjectByType<TayDuKy.Controllers.PlayerController>();
                         if (player != null)
                         {
-                            player.SetCharacter(createResp.character_id, createResp.faction);
+                            player.SetCharacter(createResp.character_id, createResp.faction, createResp.name, createResp.level);
                         }
 
                         if (TayDuKy.Managers.ChatManager.Instance != null)

@@ -63,6 +63,8 @@ namespace TayDuKy.Managers
         private List<GameObject> activeNPCs = new List<GameObject>();
         private float portalStandTimer = 0f;
         private PortalLayout activeTrackingPortal = null;
+        private float teleportCooldownTimer = 0f;
+        private Sprite portalDotSprite = null;
 
         public int ActiveMapId => activeMap != null ? activeMap.id : 101;
         public string ActiveMapName => activeMap != null ? activeMap.name : "Hội Bàn Đào";
@@ -111,7 +113,8 @@ namespace TayDuKy.Managers
             // Load the default starter map at start if not loaded
             if (activeMap == null && mapsList.Count > 0)
             {
-                LoadMap(101);
+                // spawnPlayer=true: teleport player to map spawn point on initial load
+                LoadMap(101, spawnPlayer: true);
             }
         }
 
@@ -119,16 +122,21 @@ namespace TayDuKy.Managers
         {
             if (activeMap == null) return;
 
+            if (teleportCooldownTimer > 0f)
+            {
+                teleportCooldownTimer -= Time.deltaTime;
+            }
+
             PlayerController player = FindFirstObjectByType<PlayerController>();
-            if (player != null && !player.IsMoving)
+            if (player != null && teleportCooldownTimer <= 0f)
             {
                 Vector3 playerPos = player.transform.position;
                 PortalLayout nearPortal = null;
 
                 foreach (var portal in activeMap.portals)
                 {
-                    // Chebyshev distance: Max(|dx|, |dy|)
-                    float dist = Mathf.Max(Mathf.Abs(playerPos.x - portal.x), Mathf.Abs(playerPos.y - portal.y));
+                    // Check if player position is very close to portal (close overlap)
+                    float dist = Vector3.Distance(new Vector3(playerPos.x, playerPos.y, 0f), new Vector3(portal.x, portal.y, 0f));
                     if (dist <= portal.trigger_distance)
                     {
                         nearPortal = portal;
@@ -138,49 +146,20 @@ namespace TayDuKy.Managers
 
                 if (nearPortal != null)
                 {
-                    if (activeTrackingPortal != nearPortal)
-                    {
-                        activeTrackingPortal = nearPortal;
-                        portalStandTimer = 0f;
-                        Debug.Log($"MapManager: Player is near portal ({nearPortal.x}, {nearPortal.y}). Starting standing timer (Target: {nearPortal.stand_time}s).");
-                    }
+                    Debug.Log($"MapManager: Player closely overlapped portal ({nearPortal.x}, {nearPortal.y}). Triggering instant teleport to map {nearPortal.target_map_id}.");
+                    int targetMapId = nearPortal.target_map_id;
+                    Vector3 targetPos = new Vector3(nearPortal.target_x, nearPortal.target_y, 0f);
 
-                    portalStandTimer += Time.deltaTime;
-                    if (portalStandTimer >= nearPortal.stand_time)
-                    {
-                        Debug.Log($"MapManager: Standing timer reached {nearPortal.stand_time}s. Triggering teleport to map {nearPortal.target_map_id}.");
-                        int targetMapId = nearPortal.target_map_id;
-                        Vector3 targetPos = new Vector3(nearPortal.target_x, nearPortal.target_y, 0f);
+                    // Set teleport cooldown to prevent double-triggering when spawning
+                    teleportCooldownTimer = 1.0f;
 
-                        // Reset tracking first to avoid double triggers before load completes
-                        activeTrackingPortal = null;
-                        portalStandTimer = 0f;
-
-                        LoadMap(targetMapId);
-                        player.TeleportTo(targetPos, targetMapId);
-                    }
-                }
-                else
-                {
-                    if (activeTrackingPortal != null)
-                    {
-                        Debug.Log("MapManager: Player left portal area. Resetting standing timer.");
-                        activeTrackingPortal = null;
-                        portalStandTimer = 0f;
-                    }
-                }
-            }
-            else
-            {
-                if (activeTrackingPortal != null)
-                {
-                    activeTrackingPortal = null;
-                    portalStandTimer = 0f;
+                    LoadMap(targetMapId, spawnPlayer: false);
+                    player.TeleportTo(targetPos, targetMapId);
                 }
             }
         }
 
-        public void LoadMap(int mapId)
+        public void LoadMap(int mapId, bool spawnPlayer = false)
         {
             MapConfig config = mapsList.Find(x => x.id == mapId);
             if (config == null)
@@ -203,18 +182,41 @@ namespace TayDuKy.Managers
             if (sr == null) sr = mapBackgroundObj.AddComponent<SpriteRenderer>();
 
             Sprite bgSprite = Resources.Load<Sprite>(activeMap.bg_resource_path);
+
+            // Fallback: map PNGs are often imported as Texture2D (not Sprite).
+            // Load as Texture2D and wrap into a Sprite at runtime so background always shows.
+            if (bgSprite == null)
+            {
+                Texture2D bgTex = Resources.Load<Texture2D>(activeMap.bg_resource_path);
+                if (bgTex != null)
+                {
+                    bgSprite = Sprite.Create(
+                        bgTex,
+                        new Rect(0, 0, bgTex.width, bgTex.height),
+                        new Vector2(0.5f, 0.5f),
+                        100f);
+                    Debug.Log($"MapManager: Loaded background '{activeMap.bg_resource_path}' via Texture2D fallback.");
+                }
+            }
             if (bgSprite != null)
             {
                 sr.sprite = bgSprite;
                 sr.sortingOrder = -10; // Draw behind players and NPCs
 
-                // Position background centered in the 24x24 grid (center is (11.5, 11.5))
-                mapBackgroundObj.transform.position = new Vector3(11.5f, 11.5f, 10.0f);
-                
-                // Scale sprite to fit the 24x24 grid bounds
+                // BUG FIX #1: Z must be 0 in 2D – Z=10 pushed background behind Camera (at Z=-10)
+                float centerX = activeMap.width * 0.5f;
+                float centerY = activeMap.height * 0.5f;
+                mapBackgroundObj.transform.position = new Vector3(centerX, centerY, 0f);
+
+                // Scale sprite to fit the map grid bounds exactly
                 float spriteW = bgSprite.bounds.size.x;
                 float spriteH = bgSprite.bounds.size.y;
-                mapBackgroundObj.transform.localScale = new Vector3(24.0f / spriteW, 24.0f / spriteH, 1.0f);
+                mapBackgroundObj.transform.localScale = new Vector3(
+                    (float)activeMap.width  / spriteW,
+                    (float)activeMap.height / spriteH,
+                    1.0f);
+
+                Debug.Log($"MapManager: Background set – Center=({centerX},{centerY}), Scale=({(float)activeMap.width/spriteW:F2},{(float)activeMap.height/spriteH:F2})");
             }
             else
             {
@@ -240,15 +242,23 @@ namespace TayDuKy.Managers
             {
                 GameObject npcObj = new GameObject("NPC_" + npcConfig.name);
                 var npcSr = npcObj.AddComponent<SpriteRenderer>();
-                npcSr.sortingOrder = 2; // Behind player UI but on top of map
+                npcSr.sortingOrder = 2; // Above map background, below player UI
 
-                // Position on grid cell center
+                // Position on grid cell center, Z=0 to stay in 2D plane
                 npcObj.transform.position = new Vector3(npcConfig.x, npcConfig.y, 0f);
 
-                // Assign sprite dynamically from PlayerController faction sheets
+                // BUG FIX #5: Null-safe sprite assignment from PlayerController faction sheets
                 if (player != null)
                 {
-                    npcSr.sprite = player.GetFactionDefaultSprite(npcConfig.sprite_resource);
+                    Sprite npcSprite = player.GetFactionDefaultSprite(npcConfig.sprite_resource);
+                    if (npcSprite != null)
+                    {
+                        npcSr.sprite = npcSprite;
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"MapManager: Sprite not found for NPC '{npcConfig.name}' using resource key '{npcConfig.sprite_resource}'. NPC will be invisible.");
+                    }
                 }
 
                 // Add NPC tag or component if dialogues/quest interaction is added later
@@ -256,6 +266,48 @@ namespace TayDuKy.Managers
             }
 
             Debug.Log($"MapManager: Spawned {activeMap.npcs.Count} NPCs on map {activeMap.name}");
+
+            // 3.5. Spawn portal dot indicators (small dots on ground)
+            Sprite dotSprite = GetPortalDotSprite();
+            foreach (var portal in activeMap.portals)
+            {
+                GameObject portalVisual = new GameObject($"Portal_Dot_To_{portal.target_map_id}");
+                portalVisual.transform.SetParent(transform);
+                var pSr = portalVisual.AddComponent<SpriteRenderer>();
+                pSr.sprite = dotSprite;
+                pSr.color = new Color(0f, 0.9f, 1f, 0.7f); // Bright semi-transparent cyan
+                pSr.sortingOrder = -1; // Under the players' feet, above background
+
+                // Position portal dot on the ground
+                portalVisual.transform.position = new Vector3(portal.x, portal.y, 0f);
+                portalVisual.transform.localScale = new Vector3(0.35f, 0.35f, 1f); // Neat small dot
+                portalVisual.AddComponent<TayDuKy.UI.PortalDot>(); // Add pulse animation effect
+
+                activeNPCs.Add(portalVisual); // Automatically cleaned up on map unload
+            }
+
+            // BUG FIX #2: Spawn player at map spawn point if requested
+            if (spawnPlayer)
+            {
+                PlayerController spawnTarget = player ?? FindFirstObjectByType<PlayerController>();
+                if (spawnTarget != null)
+                {
+                    Vector3 spawnPos = new Vector3(activeMap.spawn_x, activeMap.spawn_y, 0f);
+                    spawnTarget.TeleportTo(spawnPos, mapId);
+                    Debug.Log($"MapManager: Spawned player at ({activeMap.spawn_x}, {activeMap.spawn_y}) on map '{activeMap.name}'.");
+                }
+                else
+                {
+                    Debug.LogWarning("MapManager: spawnPlayer=true but no PlayerController found in scene!");
+                }
+            }
+
+            // Update camera bounds to match new map size
+            var camFollow = Camera.main != null ? Camera.main.GetComponent<TayDuKy.Controllers.CameraFollow>() : null;
+            if (camFollow != null)
+            {
+                camFollow.SetMapBounds(activeMap.width, activeMap.height);
+            }
         }
 
         public bool CanWalk(Vector3 worldPos)
@@ -358,6 +410,33 @@ namespace TayDuKy.Managers
             {
                 Debug.LogError($"Error on other player move: {ex.Message}");
             }
+        }
+
+        private Sprite GetPortalDotSprite()
+        {
+            if (portalDotSprite != null) return portalDotSprite;
+
+            // Load built-in circle or create one
+            portalDotSprite = Resources.GetBuiltinResource<Sprite>("UI/Skin/Knob.psd");
+            if (portalDotSprite == null)
+            {
+                Texture2D tex = new Texture2D(32, 32);
+                for (int y = 0; y < 32; y++)
+                {
+                    for (int x = 0; x < 32; x++)
+                    {
+                        float dx = x - 15.5f;
+                        float dy = y - 15.5f;
+                        if (dx * dx + dy * dy <= 15f * 15f)
+                            tex.SetPixel(x, y, Color.white);
+                        else
+                            tex.SetPixel(x, y, Color.clear);
+                    }
+                }
+                tex.Apply();
+                portalDotSprite = Sprite.Create(tex, new Rect(0, 0, 32, 32), new Vector2(0.5f, 0.5f), 100f);
+            }
+            return portalDotSprite;
         }
     }
 }

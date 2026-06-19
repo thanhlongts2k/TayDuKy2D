@@ -24,6 +24,8 @@ namespace TayDuKy.Controllers
         private Vector3 targetPosition;
         private bool isMoving = false;
         private int characterId = 1024; // Mock Character ID
+        private string characterName = "Shinichi";
+        private int characterLevel = 1;
 
         private Sprite[] activeSprites;
         private float frameTimer = 0f;
@@ -31,6 +33,10 @@ namespace TayDuKy.Controllers
         private enum CharacterDirection { Up, Right, Left, Down }
         private CharacterDirection currentDirection = CharacterDirection.Down;
         private SpriteRenderer spriteRenderer;
+
+        // Nameplate – floating text above character head
+        private GameObject nameplateObj;
+        private TextMesh nameplateText;
 
         public int CharacterId => characterId;
         public bool IsMoving => isMoving;
@@ -40,33 +46,31 @@ namespace TayDuKy.Controllers
         public Sprite[] YeuTocSprites => yeuTocSprites;
 
 
-        public void SetCharacter(int id, string faction)
+        public void SetCharacter(int id, string faction, string name = "", int level = 1)
         {
             characterId = id;
+            if (!string.IsNullOrEmpty(name)) characterName = name;
+            characterLevel = level;
+
             if (spriteRenderer == null) spriteRenderer = GetComponent<SpriteRenderer>();
-            
+
             if (spriteRenderer != null)
             {
                 if (faction == "Thần Tộc")
-                {
                     activeSprites = thanTocSprites;
-                }
                 else if (faction == "Ma Tộc")
-                {
                     activeSprites = maTocSprites;
-                }
                 else if (faction == "Yêu Tộc")
-                {
                     activeSprites = yeuTocSprites;
-                }
-                
+
                 if (activeSprites != null && activeSprites.Length == 16)
-                {
                     spriteRenderer.sprite = activeSprites[12]; // Default to Down idle
-                }
-                spriteRenderer.color = Color.white; // Clear fallback cyan color
+
+                spriteRenderer.color = Color.white;
             }
-            Debug.Log($"PlayerController: Set character ID={id}, Faction={faction}");
+
+            UpdateNameplate(characterName, characterLevel);
+            Debug.Log($"PlayerController: Set character ID={id}, Name={characterName}, Level={level}, Faction={faction}");
         }
 
         public Sprite GetFactionDefaultSprite(string factionName)
@@ -94,16 +98,21 @@ namespace TayDuKy.Controllers
             {
                 activeSprites = thanTocSprites;
                 if (activeSprites != null && activeSprites.Length == 16 && spriteRenderer != null)
-                {
                     spriteRenderer.sprite = activeSprites[12];
-                }
             }
+
+            // Build initial nameplate (will be overwritten once login sets name)
+            UpdateNameplate(characterName, characterLevel);
         }
 
         private void Update()
         {
+            // Block all character movement while any menu/sub-panel is open
+            bool uiBlocking = TayDuKy.UI.UIManager.Instance != null
+                           && TayDuKy.UI.UIManager.Instance.IsAnySubPanelOpen();
+
             // 1. Handle D-pad Keyboard inputs for testing (WASD / Arrow Keys)
-            if (!isMoving)
+            if (!isMoving && !uiBlocking)
             {
                 float horizontal = Input.GetAxisRaw("Horizontal");
                 float vertical = Input.GetAxisRaw("Vertical");
@@ -119,7 +128,9 @@ namespace TayDuKy.Controllers
             }
 
             // 2. Handle Tap-to-move input (Mouse Click/Touch screen)
-            if (Input.GetMouseButtonDown(0))
+            bool isOverUI = UnityEngine.EventSystems.EventSystem.current != null
+                         && UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject();
+            if (Input.GetMouseButtonDown(0) && !uiBlocking && !isOverUI)
             {
                 Vector3 clickPosition = Camera.main.ScreenToWorldPoint(Input.mousePosition);
                 clickPosition.z = 0; // Maintain 2D plane
@@ -228,14 +239,16 @@ namespace TayDuKy.Controllers
 
         public void TeleportTo(Vector3 position, int mapId)
         {
-            transform.position = position;
-            targetPosition = position;
+            // BUG FIX #6: Ensure Z=0 so player stays visible in the 2D plane
+            Vector3 flatPosition = new Vector3(position.x, position.y, 0f);
+            transform.position = flatPosition;
+            targetPosition = flatPosition;
             isMoving = false;
 
             // Notify pet to snap as well
-            OnPlayerMoved?.Invoke(position);
+            OnPlayerMoved?.Invoke(flatPosition);
 
-            SendMovePacket(position, mapId);
+            SendMovePacket(flatPosition, mapId);
         }
 
         private void SendMovePacket(Vector3 target, int mapId = -1)
@@ -267,6 +280,43 @@ namespace TayDuKy.Controllers
             
             NetworkClient.Instance.SendPacket(movePayload);
             Debug.Log($"Client sent move packet: Map={finalMapId}, X={gridX}, Y={gridY}, Direction={dirStr}");
+        }
+        /// <summary>
+        /// Creates or updates the floating nameplate text above the character sprite.
+        /// </summary>
+        private void UpdateNameplate(string displayName, int level)
+        {
+            if (nameplateObj == null)
+            {
+                nameplateObj = new GameObject("_Nameplate");
+                nameplateObj.transform.SetParent(transform, false);
+                // Position clearly above top of sprite (sprites ~1 unit tall, pivot centre)
+                nameplateObj.transform.localPosition = new Vector3(0f, 1.1f, 0f);
+                // Keep the nameplate at 1:1 scale regardless of parent scale
+                nameplateObj.transform.localScale = Vector3.one;
+
+                nameplateText = nameplateObj.AddComponent<TextMesh>();
+                nameplateText.fontSize      = 28;
+                nameplateText.characterSize = 0.10f;   // ~0.28 world-units tall at this size
+                nameplateText.alignment     = TextAlignment.Center;
+                nameplateText.anchor        = TextAnchor.MiddleCenter;
+                nameplateText.fontStyle     = FontStyle.Bold;
+
+                // Explicitly set sorting so nameplate renders above all sprites
+                var mr = nameplateObj.GetComponent<MeshRenderer>();
+                if (mr != null)
+                {
+                    mr.sortingLayerName = "Default";
+                    mr.sortingOrder     = 50;  // High value – above player sprite (order 0) and NPCs
+                }
+            }
+
+            if (nameplateText != null)
+            {
+                // Local player: gold nameplate
+                nameplateText.text  = $"{displayName}  Lv.{level}";
+                nameplateText.color = new Color(1f, 0.93f, 0.25f);
+            }
         }
     }
 }

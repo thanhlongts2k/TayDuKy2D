@@ -28,12 +28,18 @@ namespace TayDuKy.Controllers
         private CharacterDirection currentDirection = CharacterDirection.Down;
         private SpriteRenderer spriteRenderer;
 
+        // Nameplate – floating text above character head
+        private GameObject nameplateObj;
+        private TextMesh nameplateText;
+        private int characterLevel = 1;
+
         public int CharacterId => characterId;
 
-        public void SetCharacter(int id, string name, string faction)
+        public void SetCharacter(int id, string name, string faction, int level = 1)
         {
-            characterId = id;
-            characterName = name;
+            characterId    = id;
+            characterName  = name;
+            characterLevel = level;
             gameObject.name = $"OtherPlayer_{name}_{id}";
 
             if (spriteRenderer == null) spriteRenderer = GetComponent<SpriteRenderer>();
@@ -42,15 +48,16 @@ namespace TayDuKy.Controllers
             {
                 string f = faction.ToLower().Trim();
                 if (f == "thần tộc" || f == "than_toc") activeSprites = thanTocSprites;
-                else if (f == "ma tộc" || f == "ma_toc") activeSprites = maTocSprites;
-                else if (f == "yêu tộc" || f == "yeu_toc") activeSprites = yeuTocSprites;
+                else if (f == "ma tộc"   || f == "ma_toc")  activeSprites = maTocSprites;
+                else if (f == "yêu tộc"  || f == "yeu_toc") activeSprites = yeuTocSprites;
 
                 if (activeSprites != null && activeSprites.Length == 16)
-                {
                     spriteRenderer.sprite = activeSprites[12]; // Down idle
-                }
+
                 spriteRenderer.color = Color.white;
             }
+
+            UpdateNameplate(name, level);
             Debug.Log($"OtherPlayerController: Setup player ID={id}, Name={name}, Faction={faction}");
         }
 
@@ -135,8 +142,41 @@ namespace TayDuKy.Controllers
 
             int spriteIndex = offset + currentFrameIndex;
             if (spriteIndex >= 0 && spriteIndex < activeSprites.Length)
-            {
                 spriteRenderer.sprite = activeSprites[spriteIndex];
+        }
+
+        /// <summary>
+        /// Creates or updates the floating nameplate text above this other player.
+        /// </summary>
+        private void UpdateNameplate(string displayName, int level)
+        {
+            if (nameplateObj == null)
+            {
+                nameplateObj = new GameObject("_Nameplate");
+                nameplateObj.transform.SetParent(transform, false);
+                nameplateObj.transform.localPosition = new Vector3(0f, 1.1f, 0f);
+                nameplateObj.transform.localScale     = Vector3.one;
+
+                nameplateText = nameplateObj.AddComponent<TextMesh>();
+                nameplateText.fontSize      = 28;
+                nameplateText.characterSize = 0.10f;
+                nameplateText.alignment     = TextAlignment.Center;
+                nameplateText.anchor        = TextAnchor.MiddleCenter;
+                nameplateText.fontStyle     = FontStyle.Bold;
+
+                var mr = nameplateObj.GetComponent<MeshRenderer>();
+                if (mr != null)
+                {
+                    mr.sortingLayerName = "Default";
+                    mr.sortingOrder     = 50;
+                }
+            }
+
+            if (nameplateText != null)
+            {
+                // Other players: cyan nameplate to distinguish from local player
+                nameplateText.text  = $"{displayName}  Lv.{level}";
+                nameplateText.color = new Color(0.4f, 1f, 1f);
             }
         }
     }

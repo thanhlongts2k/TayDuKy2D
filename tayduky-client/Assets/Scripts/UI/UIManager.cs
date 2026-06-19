@@ -299,6 +299,18 @@ namespace TayDuKy.UI
             }
         }
 
+        /// <summary>
+        /// Returns true if any sub-panel (Inventory/Shop/Sys/Faction) is currently open.
+        /// PlayerController uses this to block keyboard movement while menus are visible.
+        /// </summary>
+        public bool IsAnySubPanelOpen()
+        {
+            return (inventoryPanel != null && inventoryPanel.activeInHierarchy)
+                || (shopPanel      != null && shopPanel.activeInHierarchy)
+                || (sysPanel       != null && sysPanel.activeInHierarchy)
+                || (factionPanel   != null && factionPanel.activeInHierarchy);
+        }
+
         private void CloseOtherPanels(GameObject activePanel)
         {
             GameObject[] panels = { inventoryPanel, shopPanel, sysPanel, factionPanel };

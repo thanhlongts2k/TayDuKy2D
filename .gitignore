@@ -1,0 +1,56 @@
+# .gitignore for TayDuKy2D project
+# ------------------------------------------------------------
+# Unity generated folders/files (do NOT commit)
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Uu]serSettings/
+# Unity cache and metadata you usually ignore
+*.csproj
+*.unityproj
+*.sln
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.opendb
+*.VC.db
+*.pidb.meta
+*.sln.docstates
+# Unity Asset Store assets (optional)
+Assets/AssetStoreTools*
+# OS generated files
+.DS_Store
+Thumbs.db
+# Log files
+*.log
+# Test / Debug files
+*.tmproj
+# Go language specific
+/go.mod
+/go.sum
+/bin/
+/pkg/
+# VSCode / Rider / IDE settings
+.vscode/
+.idea/
+# Misc
+*.bak
+*.old
+# Exclude Unity generated meta files for ignored assets (keep meta for versioned assets)
+# (We keep meta files for assets that are tracked, but ignore meta for ignored folders)
+# Allow committed meta files, ignore only ones under ignored directories
+# Specific to TayDuKy2D – ignore generated shader cache, lighting data, etc.
+tayduky-client/Library/**
+ tayduky-client/obj/**
+ tayduky-client/Temp/**
+ tayduky-client/Build/**
+ tayduky-client/Builds/**
+ tayduky-client/UserSettings/**
+# End of .gitignore
