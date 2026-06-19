@@ -91,9 +91,7 @@ namespace TayDuKy.Controllers
             targetPosition = target;
             isMoving = true;
 
-            string d = dirStr.toUpperCase().Trim(); // Wait, in C# it's ToUpper()
-            // Let's fix that
-            d = dirStr.ToUpper().Trim();
+            string d = dirStr.ToUpper().Trim();
             if (d == "NORTH") currentDirection = CharacterDirection.Up;
             else if (d == "EAST") currentDirection = CharacterDirection.Right;
             else if (d == "WEST") currentDirection = CharacterDirection.Left;
