@@ -1279,9 +1279,9 @@ namespace TayDuKy.Editor
 
             Debug.Log("=== BẮT ĐẦU KIỂM THỬ KHOẢNG CÁCH CỔNG DỊCH CHUYỂN ===");
 
-            // Portal is at (12, 22) with trigger_distance = 0.25f (Euclidean)
+            // Portal is at (12, 22) with trigger_distance = 1.0f (Euclidean), khớp với maps.json
             Vector3 portalPos = new Vector3(12f, 22f, 0f);
-            float triggerDist = 0.25f;
+            float triggerDist = 1.0f;
 
             // Case 1: Player stands directly on the portal (12, 22)
             Vector3 testPos1 = new Vector3(12f, 22f, 0f);
@@ -1289,23 +1289,23 @@ namespace TayDuKy.Editor
             bool check1 = dist1 <= triggerDist;
             Debug.Log($"Test Case 1 (Đứng đè lên portal (12, 22)): Khoảng cách = {dist1}, Kích hoạt = {check1} (Kỳ vọng: TRUE)");
 
-            // Case 2: Player stands near the portal (12.1f, 22.05f)
-            Vector3 testPos2 = new Vector3(12.1f, 22.05f, 0f);
+            // Case 2: Player stands near the portal within range (12.5f, 22.5f → dist ≈ 0.71)
+            Vector3 testPos2 = new Vector3(12.5f, 22.5f, 0f);
             float dist2 = Vector3.Distance(testPos2, portalPos);
             bool check2 = dist2 <= triggerDist;
-            Debug.Log($"Test Case 2 (Đứng lệch nhẹ portal (12.1, 22.05)): Khoảng cách = {dist2}, Kích hoạt = {check2} (Kỳ vọng: TRUE)");
+            Debug.Log($"Test Case 2 (Đứng lệch nhẹ portal (12.5, 22.5)): Khoảng cách = {dist2}, Kích hoạt = {check2} (Kỳ vọng: TRUE)");
 
-            // Case 3: Player stands further away from the portal (12.3f, 22.1f)
-            Vector3 testPos3 = new Vector3(12.3f, 22.1f, 0f);
+            // Case 3: Player just outside range (13.5f, 22f → dist = 1.5)
+            Vector3 testPos3 = new Vector3(13.5f, 22f, 0f);
             float dist3 = Vector3.Distance(testPos3, portalPos);
             bool check3 = dist3 <= triggerDist;
-            Debug.Log($"Test Case 3 (Đứng lệch nhiều portal (12.3, 22.1)): Khoảng cách = {dist3}, Kích hoạt = {check3} (Kỳ vọng: FALSE)");
+            Debug.Log($"Test Case 3 (Đứng lệch nhiều portal (13.5, 22)): Khoảng cách = {dist3}, Kích hoạt = {check3} (Kỳ vọng: FALSE)");
 
-            // Case 4: Player stands away from the portal at (12, 21)
-            Vector3 testPos4 = new Vector3(12f, 21f, 0f);
+            // Case 4: Player stands well away from the portal at (12, 20 → dist = 2)
+            Vector3 testPos4 = new Vector3(12f, 20f, 0f);
             float dist4 = Vector3.Distance(testPos4, portalPos);
             bool check4 = dist4 <= triggerDist;
-            Debug.Log($"Test Case 4 (Đứng cách xa portal (12, 21)): Khoảng cách = {dist4}, Kích hoạt = {check4} (Kỳ vọng: FALSE)");
+            Debug.Log($"Test Case 4 (Đứng cách xa portal (12, 20)): Khoảng cách = {dist4}, Kích hoạt = {check4} (Kỳ vọng: FALSE)");
 
             if (check1 && check2 && !check3 && !check4)
             {

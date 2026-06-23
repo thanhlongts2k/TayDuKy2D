@@ -205,6 +205,7 @@ Dùng để quản lý trạng thái di chuyển thời gian thực và đồng 
 
 ### A. Module Di chuyển & Đồng bộ AOI (Area of Interest Manager)
 *   **Chức năng:** Đồng bộ bước di chuyển của nhân vật cho những người chơi khác trên bản đồ mà không gây nghẽn mạng.
+*   **Trạng thái hiện thực (Prototype `server.py`):** Server nạp `maps.json` lúc khởi động và xác thực authoritative mỗi bước đi — chặn ô vật cản (obstacle), ô NPC, ngoài biên map và chống speed-hack (khoảng cách > 10 ô). Bước đi bất hợp lệ bị bỏ qua, không broadcast.
 *   **Luồng xử lý di chuyển:**
 ```mermaid
 sequenceDiagram
@@ -238,6 +239,7 @@ Các gói tin gửi qua WebSocket/TCP được đóng gói bằng cấu trúc JS
 {
   "action_id": 1001,
   "character_id": 1024,
+  "map_id": 101,
   "target_x": 15,
   "target_y": 22,
   "direction": "EAST",
@@ -247,11 +249,14 @@ Các gói tin gửi qua WebSocket/TCP được đóng gói bằng cấu trúc JS
 
 ### Gói tin Phản hồi Vị trí cho AOI (Server phát sóng cho xung quanh):
 *   **Action ID:** `2001`
+*   **Ghi chú:** Server gửi kèm `faction` để client hiển thị đúng sprite tộc (Thần/Ma/Yêu) cho người chơi khác, và `map_id` để client lọc AOI theo bản đồ.
 ```json
 {
   "action_id": 2001,
   "character_id": 1024,
+  "map_id": 101,
   "name": "shinichi",
+  "faction": "Thần Tộc",
   "current_x": 15,
   "current_y": 22,
   "direction": "EAST",

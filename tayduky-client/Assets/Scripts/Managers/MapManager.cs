@@ -345,6 +345,7 @@ namespace TayDuKy.Managers
             public int character_id;
             public int map_id;
             public string name;
+            public string faction;
             public float current_x;
             public float current_y;
             public string direction;
@@ -392,8 +393,8 @@ namespace TayDuKy.Managers
                         otherCtrl.SetSpriteSheets(localPlayer.ThanTocSprites, localPlayer.MaTocSprites, localPlayer.YeuTocSprites);
                     }
 
-                    // For prototype: we assume faction name is determined by sprite configuration or default Thần Tộc
-                    string factionName = "Thần Tộc";
+                    // Use the faction sent by the server (falls back to Thần Tộc if missing)
+                    string factionName = !string.IsNullOrEmpty(response.faction) ? response.faction : "Thần Tộc";
                     otherCtrl.SetCharacter(response.character_id, response.name, factionName);
                     otherCtrl.TeleportTo(targetPos);
                     otherPlayers[response.character_id] = otherCtrl;

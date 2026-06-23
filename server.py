@@ -23,6 +23,42 @@ except Exception as e:
 # In-memory quest logs tracking progress
 character_quests = {} # Key: char_id, Value: dict of {quest_id: {"status": status, "progress": count}}
 
+# Load maps.json (shared with the Unity client) for server-side collision validation
+MAPS_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "tayduky-client", "Assets", "Resources", "Maps", "maps.json")
+maps_db = {} # Key: map_id, Value: {"width", "height", "blocked": set of (x, y)}
+try:
+    if os.path.exists(MAPS_CONFIG_PATH):
+        with open(MAPS_CONFIG_PATH, "r", encoding="utf-8") as f:
+            maps_list = json.load(f)
+            for m in maps_list:
+                blocked = set()
+                for obs in m.get("obstacles", []):
+                    blocked.add((obs["x"], obs["y"]))
+                # NPCs also block their tile (mirrors client-side MapManager.CanWalk)
+                for npc in m.get("npcs", []):
+                    blocked.add((npc["x"], npc["y"]))
+                maps_db[m["id"]] = {
+                    "width": m.get("width", 24),
+                    "height": m.get("height", 24),
+                    "blocked": blocked
+                }
+        print(f"[START] Successfully loaded {len(maps_db)} maps for collision validation.")
+    else:
+        print(f"[WARNING] Maps configuration file not found at: {MAPS_CONFIG_PATH}")
+except Exception as e:
+    print(f"[ERROR] Failed to load maps.json: {e}")
+
+
+def is_walkable(map_id, x, y):
+    """Server-side authoritative collision check: boundaries, obstacles and NPC tiles."""
+    map_cfg = maps_db.get(map_id)
+    if map_cfg is None:
+        # Unknown map (not yet configured) – allow move so prototype maps still work
+        return True
+    if x < 0 or x >= map_cfg["width"] or y < 0 or y >= map_cfg["height"]:
+        return False
+    return (x, y) not in map_cfg["blocked"]
+
 HOST = '0.0.0.0'
 PORT = 8080
 MAX_MOVE_SPEED = 10.0 # Maximum grid tile distance allowed per move packet
@@ -288,7 +324,12 @@ async def handle_move(packet, writer):
             if dist > MAX_MOVE_SPEED:
                 print(f"[MOVE BLOCKED] Speed limit exceeded for player {char_id}. Distance={dist:.2f}")
                 return
-    
+
+    # Server-side authoritative collision: reject moves onto obstacles, NPCs or out of bounds
+    if not is_walkable(map_id, target_x, target_y):
+        print(f"[MOVE BLOCKED] Invalid tile for player {char_id} on Map {map_id}: ({target_x}, {target_y})")
+        return
+
     # Update position in-memory (map_id, x, y)
     player_positions[char_id] = (map_id, target_x, target_y)
     print(f"[MOVE] Character {char_id} moved on Map {map_id} to ({target_x}, {target_y})")
@@ -299,6 +340,7 @@ async def handle_move(packet, writer):
         "character_id": char_id,
         "map_id": map_id,
         "name": player_stats.get(char_id, {}).get("name", "Unknown"),
+        "faction": player_stats.get(char_id, {}).get("faction", "Thần Tộc"),
         "current_x": target_x,
         "current_y": target_y,
         "direction": direction,
