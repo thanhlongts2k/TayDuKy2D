@@ -37,6 +37,12 @@ Thumbs.db
 /go.sum
 /bin/
 /pkg/
+# Python specific
+__pycache__/
+*.py[cod]
+*$py.class
+# Unity editor logs
+[Ll]ogs/
 # VSCode / Rider / IDE settings
 .vscode/
 .idea/
