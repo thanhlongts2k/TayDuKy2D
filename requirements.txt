@@ -1,0 +1,6 @@
+# Python server dependencies (Tây Du Ký 2D)
+# Install: python -m pip install -r requirements.txt
+#
+# psycopg2 is only needed when DATABASE_URL is set (PostgreSQL/Supabase backend).
+# Without it, server.py runs fine on the bundled maps.json file fallback.
+psycopg2-binary>=2.9

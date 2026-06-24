@@ -24,59 +24,69 @@ except Exception as e:
 # In-memory quest logs tracking progress
 character_quests = {} # Key: char_id, Value: dict of {quest_id: {"status": status, "progress": count}}
 
-# Maps source of truth. Currently file-backed; swap MapRepository's backend
-# (e.g. PostgreSQL/Redis) later without touching gameplay code.
+# Maps source of truth. Backend is chosen at startup from DATABASE_URL:
+#   - set      -> PostgresMapRepository (Supabase / PostgreSQL, admin-customizable)
+#   - unset    -> FileMapRepository (bundled maps.json, zero-config fallback)
 MAPS_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "tayduky-client", "Assets", "Resources", "Maps", "maps.json")
 
 
-class MapRepository:
-    """File-backed repository for map data (single source of truth).
+def _load_dotenv(path):
+    """Minimal .env loader (no external dependency). Existing env vars win."""
+    if not os.path.exists(path):
+        return
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, value = line.split("=", 1)
+                key = key.strip()
+                value = value.strip().strip('"').strip("'")
+                if key and key not in os.environ:
+                    os.environ[key] = value
+    except Exception as e:
+        print(f"[WARNING] Failed to read .env: {e}")
 
-    Responsibilities:
-      - serve raw MapConfig to clients (get_map / get_all)
-      - expose a stable per-map version hash for client-side caching (get_version)
-      - provide authoritative collision checks (is_walkable)
 
-    Designed as a swappable abstraction: a DB-backed implementation only needs to
-    reimplement reload()/get_map()/get_all() with the same interface.
+_load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
+
+
+class BaseMapRepository:
+    """Map repository contract + shared in-memory index.
+
+    The hot path (is_walkable on every move, get_map/get_version on every map
+    request) reads ONLY the in-memory caches, so it stays fast regardless of the
+    backend. Backends populate those caches via _index() during (a)sync loads.
     """
 
-    def __init__(self, path):
-        self.path = path
+    def __init__(self):
         self._maps = {}       # map_id -> raw MapConfig dict
         self._collision = {}  # map_id -> {"width", "height", "blocked": set of (x, y)}
         self._versions = {}   # map_id -> short stable hash of the map config
-        self.reload()
 
-    def reload(self):
+    def _index(self, maps_list):
+        """Rebuild in-memory caches from a list of raw MapConfig dicts."""
         self._maps.clear()
         self._collision.clear()
         self._versions.clear()
-        try:
-            if not os.path.exists(self.path):
-                print(f"[WARNING] Maps configuration file not found at: {self.path}")
-                return
-            with open(self.path, "r", encoding="utf-8") as f:
-                for m in json.load(f):
-                    mid = m["id"]
-                    self._maps[mid] = m
+        for m in maps_list:
+            mid = m["id"]
+            self._maps[mid] = m
 
-                    # Precompute collision tiles (obstacles + NPC tiles)
-                    blocked = set((o["x"], o["y"]) for o in m.get("obstacles", []))
-                    for npc in m.get("npcs", []):
-                        blocked.add((npc["x"], npc["y"]))
-                    self._collision[mid] = {
-                        "width": m.get("width", 24),
-                        "height": m.get("height", 24),
-                        "blocked": blocked,
-                    }
+            # Precompute collision tiles (obstacles + NPC tiles)
+            blocked = set((o["x"], o["y"]) for o in m.get("obstacles", []))
+            for npc in m.get("npcs", []):
+                blocked.add((npc["x"], npc["y"]))
+            self._collision[mid] = {
+                "width": m.get("width", 24),
+                "height": m.get("height", 24),
+                "blocked": blocked,
+            }
 
-                    # Stable version = short SHA1 of the canonical JSON of this map
-                    canonical = json.dumps(m, sort_keys=True, ensure_ascii=False).encode("utf-8")
-                    self._versions[mid] = hashlib.sha1(canonical).hexdigest()[:12]
-            print(f"[START] Map repository loaded {len(self._maps)} maps (collision + versions).")
-        except Exception as e:
-            print(f"[ERROR] Failed to load maps.json: {e}")
+            # Stable version = short SHA1 of the canonical JSON of this map
+            canonical = json.dumps(m, sort_keys=True, ensure_ascii=False).encode("utf-8")
+            self._versions[mid] = hashlib.sha1(canonical).hexdigest()[:12]
 
     def get_map(self, map_id):
         return self._maps.get(map_id)
@@ -97,8 +107,106 @@ class MapRepository:
             return False
         return (x, y) not in cfg["blocked"]
 
+    async def ensure_loaded(self):
+        """Hook for async backends to perform their initial load. No-op by default."""
+        return
 
-map_repo = MapRepository(MAPS_CONFIG_PATH)
+    async def refresh(self):
+        """Reload from the backing store (picks up admin edits). Override per backend."""
+        return
+
+
+class FileMapRepository(BaseMapRepository):
+    """Reads maps from the bundled maps.json (zero-config fallback)."""
+
+    def __init__(self, path):
+        super().__init__()
+        self.path = path
+        self.reload()
+
+    def reload(self):
+        try:
+            if not os.path.exists(self.path):
+                print(f"[WARNING] Maps configuration file not found at: {self.path}")
+                self._index([])
+                return
+            with open(self.path, "r", encoding="utf-8") as f:
+                self._index(json.load(f))
+            print(f"[START] Map repository loaded {len(self._maps)} maps from file (maps.json).")
+        except Exception as e:
+            print(f"[ERROR] Failed to load maps.json: {e}")
+
+    async def refresh(self):
+        # Re-read the file so hot edits to maps.json propagate without a restart
+        self.reload()
+
+
+class PostgresMapRepository(BaseMapRepository):
+    """Reads maps from a PostgreSQL/Supabase `maps` table (JSONB `data` column).
+
+    DB access uses the synchronous psycopg2 driver offloaded via asyncio.to_thread
+    so it never blocks the event loop. DB is only hit on load/refresh (startup +
+    periodic), never on the per-move / per-request hot path.
+    """
+
+    def __init__(self, dsn):
+        super().__init__()
+        self.dsn = dsn
+        self._loaded = False
+
+    def _fetch_all(self):
+        import psycopg2
+        import psycopg2.extras
+        conn = psycopg2.connect(self.dsn)
+        try:
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                cur.execute("SELECT data FROM maps ORDER BY id")
+                return [row["data"] for row in cur.fetchall()]
+        finally:
+            conn.close()
+
+    async def _load(self):
+        rows = await asyncio.to_thread(self._fetch_all)
+        self._index(rows)
+        self._loaded = True
+        print(f"[START] Map repository loaded {len(rows)} maps from PostgreSQL.")
+
+    async def ensure_loaded(self):
+        if not self._loaded:
+            try:
+                await self._load()
+            except Exception as e:
+                print(f"[ERROR] Postgres map load failed: {e}. Falling back to maps.json.")
+                # Graceful degradation: load bundled file so the server still serves maps
+                try:
+                    with open(MAPS_CONFIG_PATH, "r", encoding="utf-8") as f:
+                        self._index(json.load(f))
+                    self._loaded = True
+                    print(f"[WARNING] Serving {len(self._maps)} maps from bundled fallback.")
+                except Exception as e2:
+                    print(f"[ERROR] Fallback load also failed: {e2}")
+
+    async def refresh(self):
+        try:
+            await self._load()
+        except Exception as e:
+            print(f"[WARNING] Postgres map refresh failed (keeping current cache): {e}")
+
+
+def build_map_repository():
+    dsn = os.environ.get("DATABASE_URL", "").strip()
+    if dsn:
+        print("[CONFIG] Map backend: PostgreSQL (DATABASE_URL is set).")
+        return PostgresMapRepository(dsn)
+    print("[CONFIG] Map backend: file (maps.json). Set DATABASE_URL to use PostgreSQL/Supabase.")
+    return FileMapRepository(MAPS_CONFIG_PATH)
+
+
+map_repo = build_map_repository()
+
+# Periodic map refresh so admin edits (DB or maps.json) propagate without restart.
+# Set MAP_RELOAD_SECONDS=0 to disable.
+MAP_RELOAD_SECONDS = int(os.environ.get("MAP_RELOAD_SECONDS", "30"))
 
 HOST = '0.0.0.0'
 PORT = 8080
@@ -613,11 +721,26 @@ async def handle_pet(packet, writer):
     state = packet.get("is_summoned")
     print(f"[PET] Player changed pet {pet_id} state to Summoned={state}")
 
+async def periodic_map_reload():
+    """Background task: refresh maps from the backing store so admin edits
+    (DB rows or maps.json) propagate to players without restarting the server."""
+    while True:
+        await asyncio.sleep(MAP_RELOAD_SECONDS)
+        await map_repo.refresh()
+
+
 async def main():
+    # Load maps from the configured backend (async for the Postgres backend)
+    await map_repo.ensure_loaded()
+
     server = await asyncio.start_server(handle_client, HOST, PORT)
     addr = server.sockets[0].getsockname()
     print(f"[START] Tay Du Ky Mobile Python Asyncio Server listening on {addr}")
-    
+
+    if MAP_RELOAD_SECONDS > 0:
+        asyncio.create_task(periodic_map_reload())
+        print(f"[START] Periodic map reload every {MAP_RELOAD_SECONDS}s enabled.")
+
     async with server:
         await server.serve_forever()
 

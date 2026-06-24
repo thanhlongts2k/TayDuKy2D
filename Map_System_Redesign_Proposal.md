@@ -128,7 +128,11 @@ Mỗi bước **độc lập, có giá trị riêng** — không cần làm hế
 - [x] **Bước 2 — MapRepository (server)** *(file-backed, có get_map/get_all/get_version/is_walkable/reload)*
 - [x] **Bước 3 — Versioning (SHA1 12 ký tự) + client cache trên đĩa** *(up_to_date bỏ map body để tiết kiệm băng thông)*
 - [ ] Bước 4 — Tiled import pipeline *(cần cài Tiled + thống nhất layer convention)*
-- [ ] Bước 5 — DB + admin panel + CDN *(cần PostgreSQL + R2 + web stack)*
+- [~] **Bước 5 — DB + admin panel** *(đã code: `PostgresMapRepository` + schema + seed + reload tự động; admin = Supabase Studio. Xem `Supabase_Setup_Guide.md`)*
+  - [x] Backend PostgreSQL/Supabase (chọn qua `DATABASE_URL`, fallback file)
+  - [x] Admin panel = Supabase Studio (Table Editor sửa cột `data` JSONB)
+  - [x] Tự reload map sau khi admin sửa (`MAP_RELOAD_SECONDS`, mặc định 30s)
+  - [ ] Ảnh nền map lên Supabase Storage/CDN (`bg_resource_path` → URL, client tải runtime) — *increment kế tiếp*
 
 ### Cách hoạt động sau Bước 1-3 (transitional hybrid)
 - Client render map **local-first** (bundled `maps.json` → cache đĩa) để vào game tức thì, không phụ thuộc mạng.
