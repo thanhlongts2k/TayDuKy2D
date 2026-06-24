@@ -136,3 +136,81 @@ Mỗi bước **độc lập, có giá trị riêng** — không cần làm hế
 - Bundled `maps.json` vẫn là **fallback** khi offline hoặc server chưa có map đó.
 
 *(Cập nhật checkbox khi hoàn thành từng bước.)*
+
+---
+
+## 9. Tổng Quan Luồng Xử Lý (Operational Overview — đã hiện thực Bước 1-3)
+
+Phần này mô tả cách hệ thống map vận hành thực tế sau khi hoàn thành Bước 1-3.
+
+### 9.1. Các thành phần và trách nhiệm
+
+| Thành phần | File | Trách nhiệm |
+|---|---|---|
+| **MapRepository** | `server.py` | Nguồn chân lý map: nạp `maps.json`, tính version hash, phục vụ map config, kiểm tra collision authoritative. Abstraction để đổi backend File→DB. |
+| **Handler `1006`** | `server.py` → `handle_request_map` | Trả map cho client; so version để bỏ qua map không đổi (tiết kiệm băng thông). |
+| **Handler move** | `server.py` → `handle_move` | Gọi `map_repo.is_walkable()` chặn đi xuyên tường/biên/NPC, broadcast AOI kèm faction. |
+| **NetworkClient** | `NetworkClient.cs` | Lớp socket; expose `IsConnected`; route packet `2006` về MapManager. |
+| **MapManager** | `MapManager.cs` | Render map; nạp bundled + cache đĩa; xin map từ server; áp dụng live; ghi cache; xử lý portal. |
+
+### 9.2. Luồng khởi động & refresh map (Startup + Refresh)
+
+```mermaid
+sequenceDiagram
+    participant U as MapManager (Client)
+    participant N as NetworkClient
+    participant S as Server (MapRepository)
+
+    Note over U: Awake: nạp bundled maps.json + cache đĩa (MapCache/)
+    Note over U: Start: LoadMap(101) ngay từ local → vào game tức thì
+    U->>N: Chờ IsConnected (coroutine, timeout 5s)
+    U->>S: 1006 REQUEST_MAP {map_id:101, cached_version:"<hash hoặc rỗng>"}
+    alt Map đã đổi / chưa cache
+        S-->>U: 2006 {status:"updated", version, map:{...}}
+        Note over U: UpsertMap + ghi cache đĩa + nếu là map đang đứng → LoadMap live
+    else Cache đã mới nhất
+        S-->>U: 2006 {status:"up_to_date", version}  (KHÔNG kèm map body)
+        Note over U: Dùng bản cache, không tải lại
+    else Server chưa có map
+        S-->>U: 2006 {status:"not_found"}
+        Note over U: Giữ bundled/cache làm fallback
+    end
+```
+
+### 9.3. Luồng dịch chuyển qua Portal (Teleport)
+
+```mermaid
+sequenceDiagram
+    participant P as PlayerController
+    participant U as MapManager
+    participant S as Server
+
+    P->>U: Đứng gần portal (trigger_distance = 1.0)
+    U->>U: LoadMap(targetMap) từ local + TeleportTo (render ngay)
+    U->>S: 1006 REQUEST_MAP {target_map, cached_version}
+    S-->>U: 2006 updated/up_to_date
+    Note over U: Nếu updated → áp map mới live cho map đích
+```
+
+### 9.4. Luồng admin sửa map (Propagation)
+
+```mermaid
+sequenceDiagram
+    participant A as Admin
+    participant S as Server (MapRepository)
+    participant C as Client (đang chơi)
+
+    A->>S: Sửa maps.json (Bước 1-3) / DB (Bước 5)
+    A->>S: reload() — version hash của map đổi
+    C->>S: 1006 (lần đổi map kế tiếp) với cached_version CŨ
+    S-->>C: 2006 updated + map mới
+    Note over C: Áp dụng map mới, ghi cache — KHÔNG cần build lại client
+```
+
+### 9.5. Bất biến & an toàn (Invariants)
+
+- **Local-first:** luôn render được map từ bundled/cache, không phụ thuộc kết nối → không màn hình trắng.
+- **Authoritative collision:** mọi bước đi đều qua `map_repo.is_walkable()` phía server; client chỉ là lớp hiển thị.
+- **Tiết kiệm băng thông:** `up_to_date` không truyền lại map body; chỉ tải khi version đổi.
+- **Fallback nhiều lớp:** server có map → dùng server; không → cache đĩa → bundled.
+- **Version ổn định:** hash từ canonical JSON (sort_keys) → cùng nội dung luôn cho cùng hash, không tải lại thừa.
