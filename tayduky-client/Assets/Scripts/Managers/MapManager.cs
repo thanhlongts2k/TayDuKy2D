@@ -1,5 +1,7 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using UnityEngine;
 using TayDuKy.Controllers;
 
@@ -57,8 +59,27 @@ namespace TayDuKy.Managers
         [System.Serializable]
         private class MapListWrapper { public List<MapConfig> maps; }
 
+        // Wrapper for a server-served map persisted to disk cache
+        [System.Serializable]
+        private class CachedMap { public string version; public MapConfig map; }
+
+        // Server -> Client map data packet (Action ID 2006)
+        [System.Serializable]
+        public class MapDataResponse
+        {
+            public int action_id;
+            public string status;   // "updated" | "up_to_date" | "not_found"
+            public int map_id;
+            public string version;
+            public MapConfig map;
+        }
+
         public List<MapConfig> mapsList = new List<MapConfig>();
         private MapConfig activeMap = null;
+
+        // Cached map versions (map_id -> version hash) and on-disk cache directory
+        private Dictionary<int, string> mapVersions = new Dictionary<int, string>();
+        private string CacheDir => Path.Combine(Application.persistentDataPath, "MapCache");
         private GameObject mapBackgroundObj = null;
         private List<GameObject> activeNPCs = new List<GameObject>();
         private float portalStandTimer = 0f;
@@ -77,7 +98,8 @@ namespace TayDuKy.Managers
             {
                 Instance = this;
                 DontDestroyOnLoad(gameObject);
-                LoadMapConfigurations();
+                LoadMapConfigurations();   // bundled maps.json (fallback baseline)
+                LoadCachedMaps();          // server-cached maps override bundled if present
             }
             else
             {
@@ -108,14 +130,133 @@ namespace TayDuKy.Managers
             }
         }
 
+        // ---------------------------------------------------------------------
+        // Server-authoritative map loading + on-disk cache (Roadmap steps 1 & 3)
+        // ---------------------------------------------------------------------
+
+        /// <summary>Load any server-cached maps from disk; they override bundled maps.</summary>
+        private void LoadCachedMaps()
+        {
+            try
+            {
+                if (!Directory.Exists(CacheDir)) return;
+                int count = 0;
+                foreach (var file in Directory.GetFiles(CacheDir, "map_*.json"))
+                {
+                    string txt = File.ReadAllText(file);
+                    CachedMap cm = JsonUtility.FromJson<CachedMap>(txt);
+                    if (cm != null && cm.map != null)
+                    {
+                        UpsertMap(cm.map);
+                        mapVersions[cm.map.id] = cm.version;
+                        count++;
+                    }
+                }
+                if (count > 0) Debug.Log($"MapManager: Loaded {count} cached map(s) from disk.");
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"MapManager: Failed to load cached maps: {e.Message}");
+            }
+        }
+
+        /// <summary>Insert or replace a map config in the in-memory list by id.</summary>
+        private void UpsertMap(MapConfig cfg)
+        {
+            int idx = mapsList.FindIndex(x => x.id == cfg.id);
+            if (idx >= 0) mapsList[idx] = cfg;
+            else mapsList.Add(cfg);
+        }
+
+        /// <summary>Persist a server-served map to disk so future sessions can skip the download.</summary>
+        private void SaveMapToCache(int mapId, string version, MapConfig cfg)
+        {
+            try
+            {
+                if (!Directory.Exists(CacheDir)) Directory.CreateDirectory(CacheDir);
+                CachedMap cm = new CachedMap { version = version, map = cfg };
+                File.WriteAllText(Path.Combine(CacheDir, $"map_{mapId}.json"), JsonUtility.ToJson(cm));
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"MapManager: Failed to cache map {mapId}: {e.Message}");
+            }
+        }
+
+        /// <summary>Wait until the network is connected (or timeout), then request a fresh map.</summary>
+        private IEnumerator RefreshMapWhenConnected(int mapId)
+        {
+            float timeout = 5f;
+            while ((NetworkClient.Instance == null || !NetworkClient.Instance.IsConnected) && timeout > 0f)
+            {
+                timeout -= Time.deltaTime;
+                yield return null;
+            }
+            RequestMapFromServer(mapId);
+        }
+
+        /// <summary>Send a REQUEST_MAP packet (Action ID 1006) including our cached version.</summary>
+        public void RequestMapFromServer(int mapId)
+        {
+            if (NetworkClient.Instance == null || !NetworkClient.Instance.IsConnected)
+            {
+                Debug.Log($"MapManager: Offline – using local map {mapId} (no server refresh).");
+                return;
+            }
+
+            string cachedVersion = mapVersions.TryGetValue(mapId, out var v) ? v : "";
+            string payload = $"{{\"action_id\": 1006, \"map_id\": {mapId}, \"cached_version\": \"{cachedVersion}\"}}";
+            NetworkClient.Instance.SendPacket(payload);
+            Debug.Log($"MapManager: Requested map {mapId} from server (cachedVersion='{cachedVersion}').");
+        }
+
+        /// <summary>Handle the server's MAP_DATA response (Action ID 2006).</summary>
+        public void OnMapDataReceived(string json)
+        {
+            try
+            {
+                MapDataResponse resp = JsonUtility.FromJson<MapDataResponse>(json);
+                if (resp == null) return;
+
+                if (resp.status == "updated" && resp.map != null)
+                {
+                    UpsertMap(resp.map);
+                    mapVersions[resp.map_id] = resp.version;
+                    SaveMapToCache(resp.map_id, resp.version, resp.map);
+                    Debug.Log($"MapManager: Received updated map {resp.map_id} (v{resp.version}).");
+
+                    // If this is the map we're currently on, re-apply it live (no respawn)
+                    if (resp.map_id == ActiveMapId)
+                    {
+                        LoadMap(resp.map_id, spawnPlayer: false);
+                    }
+                }
+                else if (resp.status == "up_to_date")
+                {
+                    Debug.Log($"MapManager: Map {resp.map_id} cache up to date (v{resp.version}).");
+                }
+                else if (resp.status == "not_found")
+                {
+                    Debug.LogWarning($"MapManager: Server has no map {resp.map_id}; keeping bundled/cached fallback.");
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"MapManager: Error handling map data: {e.Message}");
+            }
+        }
+
         private void Start()
         {
-            // Load the default starter map at start if not loaded
+            // Load the default starter map locally first (instant render from bundled/cache)
             if (activeMap == null && mapsList.Count > 0)
             {
                 // spawnPlayer=true: teleport player to map spawn point on initial load
                 LoadMap(101, spawnPlayer: true);
             }
+
+            // Then refresh the active map from the server (authoritative, picks up admin edits)
+            StartCoroutine(RefreshMapWhenConnected(101));
         }
 
         private void Update()
@@ -155,6 +296,9 @@ namespace TayDuKy.Managers
 
                     LoadMap(targetMapId, spawnPlayer: false);
                     player.TeleportTo(targetPos, targetMapId);
+
+                    // Refresh the destination map from the server (authoritative)
+                    RequestMapFromServer(targetMapId);
                 }
             }
         }

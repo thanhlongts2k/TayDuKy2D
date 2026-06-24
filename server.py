@@ -4,6 +4,7 @@ import math
 import time
 import random
 import os
+import hashlib
 
 # Load quests.json dynamically from client Resources
 QUESTS_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "tayduky-client", "Assets", "Resources", "Quests", "quests.json")
@@ -23,41 +24,81 @@ except Exception as e:
 # In-memory quest logs tracking progress
 character_quests = {} # Key: char_id, Value: dict of {quest_id: {"status": status, "progress": count}}
 
-# Load maps.json (shared with the Unity client) for server-side collision validation
+# Maps source of truth. Currently file-backed; swap MapRepository's backend
+# (e.g. PostgreSQL/Redis) later without touching gameplay code.
 MAPS_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "tayduky-client", "Assets", "Resources", "Maps", "maps.json")
-maps_db = {} # Key: map_id, Value: {"width", "height", "blocked": set of (x, y)}
-try:
-    if os.path.exists(MAPS_CONFIG_PATH):
-        with open(MAPS_CONFIG_PATH, "r", encoding="utf-8") as f:
-            maps_list = json.load(f)
-            for m in maps_list:
-                blocked = set()
-                for obs in m.get("obstacles", []):
-                    blocked.add((obs["x"], obs["y"]))
-                # NPCs also block their tile (mirrors client-side MapManager.CanWalk)
-                for npc in m.get("npcs", []):
-                    blocked.add((npc["x"], npc["y"]))
-                maps_db[m["id"]] = {
-                    "width": m.get("width", 24),
-                    "height": m.get("height", 24),
-                    "blocked": blocked
-                }
-        print(f"[START] Successfully loaded {len(maps_db)} maps for collision validation.")
-    else:
-        print(f"[WARNING] Maps configuration file not found at: {MAPS_CONFIG_PATH}")
-except Exception as e:
-    print(f"[ERROR] Failed to load maps.json: {e}")
 
 
-def is_walkable(map_id, x, y):
-    """Server-side authoritative collision check: boundaries, obstacles and NPC tiles."""
-    map_cfg = maps_db.get(map_id)
-    if map_cfg is None:
-        # Unknown map (not yet configured) – allow move so prototype maps still work
-        return True
-    if x < 0 or x >= map_cfg["width"] or y < 0 or y >= map_cfg["height"]:
-        return False
-    return (x, y) not in map_cfg["blocked"]
+class MapRepository:
+    """File-backed repository for map data (single source of truth).
+
+    Responsibilities:
+      - serve raw MapConfig to clients (get_map / get_all)
+      - expose a stable per-map version hash for client-side caching (get_version)
+      - provide authoritative collision checks (is_walkable)
+
+    Designed as a swappable abstraction: a DB-backed implementation only needs to
+    reimplement reload()/get_map()/get_all() with the same interface.
+    """
+
+    def __init__(self, path):
+        self.path = path
+        self._maps = {}       # map_id -> raw MapConfig dict
+        self._collision = {}  # map_id -> {"width", "height", "blocked": set of (x, y)}
+        self._versions = {}   # map_id -> short stable hash of the map config
+        self.reload()
+
+    def reload(self):
+        self._maps.clear()
+        self._collision.clear()
+        self._versions.clear()
+        try:
+            if not os.path.exists(self.path):
+                print(f"[WARNING] Maps configuration file not found at: {self.path}")
+                return
+            with open(self.path, "r", encoding="utf-8") as f:
+                for m in json.load(f):
+                    mid = m["id"]
+                    self._maps[mid] = m
+
+                    # Precompute collision tiles (obstacles + NPC tiles)
+                    blocked = set((o["x"], o["y"]) for o in m.get("obstacles", []))
+                    for npc in m.get("npcs", []):
+                        blocked.add((npc["x"], npc["y"]))
+                    self._collision[mid] = {
+                        "width": m.get("width", 24),
+                        "height": m.get("height", 24),
+                        "blocked": blocked,
+                    }
+
+                    # Stable version = short SHA1 of the canonical JSON of this map
+                    canonical = json.dumps(m, sort_keys=True, ensure_ascii=False).encode("utf-8")
+                    self._versions[mid] = hashlib.sha1(canonical).hexdigest()[:12]
+            print(f"[START] Map repository loaded {len(self._maps)} maps (collision + versions).")
+        except Exception as e:
+            print(f"[ERROR] Failed to load maps.json: {e}")
+
+    def get_map(self, map_id):
+        return self._maps.get(map_id)
+
+    def get_all(self):
+        return list(self._maps.values())
+
+    def get_version(self, map_id):
+        return self._versions.get(map_id)
+
+    def is_walkable(self, map_id, x, y):
+        """Authoritative collision check: boundaries, obstacles and NPC tiles."""
+        cfg = self._collision.get(map_id)
+        if cfg is None:
+            # Unknown map (not yet configured) – allow move so prototype maps still work
+            return True
+        if x < 0 or x >= cfg["width"] or y < 0 or y >= cfg["height"]:
+            return False
+        return (x, y) not in cfg["blocked"]
+
+
+map_repo = MapRepository(MAPS_CONFIG_PATH)
 
 HOST = '0.0.0.0'
 PORT = 8080
@@ -145,6 +186,8 @@ async def handle_client(reader, writer):
                     await handle_combat(packet, writer)
                 elif action_id == 1005:
                     await handle_chat(packet, writer)
+                elif action_id == 1006:
+                    await handle_request_map(packet, writer)
                 elif action_id == 1008:
                     await handle_quest(packet, writer)
                 elif action_id == 1010:
@@ -326,7 +369,7 @@ async def handle_move(packet, writer):
                 return
 
     # Server-side authoritative collision: reject moves onto obstacles, NPCs or out of bounds
-    if not is_walkable(map_id, target_x, target_y):
+    if not map_repo.is_walkable(map_id, target_x, target_y):
         print(f"[MOVE BLOCKED] Invalid tile for player {char_id} on Map {map_id}: ({target_x}, {target_y})")
         return
 
@@ -402,6 +445,47 @@ async def handle_combat(packet, writer):
         "is_dead": is_dead
     }
     await send_response(writer, response)
+
+async def handle_request_map(packet, writer):
+    """Serve a map definition to the client (Action ID 2006).
+
+    Honors client-side caching: if the client's cached_version matches the current
+    map version, reply 'up_to_date' WITHOUT the heavy map body to save bandwidth.
+    """
+    map_id = packet.get("map_id")
+    cached_version = packet.get("cached_version", "")
+
+    map_config = map_repo.get_map(map_id)
+    if map_config is None:
+        print(f"[MAP REQUEST] Map {map_id} not found.")
+        await send_response(writer, {
+            "action_id": 2006,
+            "status": "not_found",
+            "map_id": map_id
+        })
+        return
+
+    version = map_repo.get_version(map_id)
+
+    if cached_version and cached_version == version:
+        print(f"[MAP REQUEST] Char requested map {map_id} – cache up to date (v{version}).")
+        await send_response(writer, {
+            "action_id": 2006,
+            "status": "up_to_date",
+            "map_id": map_id,
+            "version": version
+        })
+        return
+
+    print(f"[MAP REQUEST] Serving map {map_id} (v{version}) to client.")
+    await send_response(writer, {
+        "action_id": 2006,
+        "status": "updated",
+        "map_id": map_id,
+        "version": version,
+        "map": map_config
+    })
+
 
 async def handle_chat(packet, writer):
     sender_name = packet.get("sender_name")

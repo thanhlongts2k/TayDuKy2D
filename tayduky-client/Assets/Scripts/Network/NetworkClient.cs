@@ -23,6 +23,9 @@ namespace TayDuKy.Network
         private Thread receiveThread;
         private bool isConnected = false;
 
+        /// <summary>True khi socket đã kết nối và sẵn sàng gửi/nhận.</summary>
+        public bool IsConnected => isConnected && socket != null && socket.Connected;
+
         private Queue<string> packetQueue = new Queue<string>();
         private object queueLock = new object();
 
@@ -301,6 +304,13 @@ namespace TayDuKy.Network
                     if (TayDuKy.Managers.ChatManager.Instance != null)
                     {
                         TayDuKy.Managers.ChatManager.Instance.OnReceiveChatPacket(json);
+                    }
+                }
+                else if (baseResp.action_id == 2006) // Map Data Response (server-authoritative map)
+                {
+                    if (TayDuKy.Managers.MapManager.Instance != null)
+                    {
+                        TayDuKy.Managers.MapManager.Instance.OnMapDataReceived(json);
                     }
                 }
             }
