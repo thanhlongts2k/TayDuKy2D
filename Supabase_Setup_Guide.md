@@ -90,11 +90,35 @@ Log mong đợi:
 
 ---
 
-## Ghi chú & các bước tiếp theo
+## Bước G — Đưa ảnh nền map lên Supabase Storage (CDN) — *(Bước 5b)*
 
-- **Ảnh nền map (CDN):** hiện `bg_resource_path` vẫn trỏ tới ảnh nhúng trong client. Bước kế tiếp sẽ
-  chuyển ảnh lên **Supabase Storage** và đổi `bg_resource_path` thành URL để client tải runtime
-  (có CDN tích hợp). Sẽ làm trong increment sau.
+Client đã hỗ trợ tải ảnh nền từ URL (có cache đĩa). Để dùng ảnh trên CDN thay vì ảnh nhúng:
+
+1. Supabase → **Storage** → **New bucket**:
+   - *Name:* `maps`
+   - **Public bucket: BẬT** (để client tải không cần token).
+2. Vào bucket `maps` → **Upload files** → tải 2 ảnh từ
+   `tayduky-client/Assets/Resources/Maps/`: `hoi_ban_dao.png`, `dao_tri.png`.
+3. Bấm vào từng ảnh → **Copy URL**, dạng:
+   ```
+   https://xxxx.supabase.co/storage/v1/object/public/maps/hoi_ban_dao.png
+   ```
+4. **Table Editor → maps** → sửa cột `data` (JSONB) của map tương ứng, đổi:
+   ```json
+   "bg_resource_path": "https://xxxx.supabase.co/storage/v1/object/public/maps/hoi_ban_dao.png"
+   ```
+   (map 101 → `hoi_ban_dao.png`, map 102 → `dao_tri.png`).
+5. Trong vòng `MAP_RELOAD_SECONDS`, server phục vụ URL mới → client tải ảnh qua CDN, **cache vào đĩa**
+   (`persistentDataPath/MapCache/bg/bg_<mapId>_<version>.png`), lần sau khỏi tải lại.
+
+> **Cơ chế:** nếu `bg_resource_path` bắt đầu bằng `http(s)://` → client tải runtime + cache; ngược lại
+> dùng ảnh trong `Resources/` như cũ. Cache theo `mapId + version`, nên khi bạn đổi ảnh hãy đổi cả
+> URL (hoặc sửa `data` để version map thay đổi) để client tải bản mới.
+
+---
+
+## Ghi chú & bảo mật
+
 - **Bảo mật:** mới chỉ dùng cho sandbox. Khi lên production cần bật Row Level Security và tách
   quyền admin (xem mục 3.B/5 trong `Map_System_Redesign_Proposal.md`).
 - **Driver:** server dùng `psycopg2` (đồng bộ) bọc trong `asyncio.to_thread`; DB chỉ bị gọi lúc

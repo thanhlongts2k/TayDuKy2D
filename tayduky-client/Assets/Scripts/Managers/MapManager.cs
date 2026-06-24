@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
+using UnityEngine.Networking;
 using TayDuKy.Controllers;
 
 namespace TayDuKy.Managers
@@ -80,6 +81,7 @@ namespace TayDuKy.Managers
         // Cached map versions (map_id -> version hash) and on-disk cache directory
         private Dictionary<int, string> mapVersions = new Dictionary<int, string>();
         private string CacheDir => Path.Combine(Application.persistentDataPath, "MapCache");
+        private string BgCacheDir => Path.Combine(Application.persistentDataPath, "MapCache", "bg");
         private GameObject mapBackgroundObj = null;
         private List<GameObject> activeNPCs = new List<GameObject>();
         private float portalStandTimer = 0f;
@@ -246,6 +248,99 @@ namespace TayDuKy.Managers
             }
         }
 
+        // ---------------------------------------------------------------------
+        // Map background loading: Resources (bundled) or remote URL/CDN (step 5b)
+        // ---------------------------------------------------------------------
+
+        /// <summary>Apply a background sprite to the map plane: position + scale to grid bounds.</summary>
+        private void ApplyBackgroundSprite(Sprite bgSprite, int mapId, int mapWidth, int mapHeight)
+        {
+            // Ignore late async results for a map we've already navigated away from
+            if (activeMap == null || activeMap.id != mapId) return;
+            if (mapBackgroundObj == null) return;
+
+            var sr = mapBackgroundObj.GetComponent<SpriteRenderer>();
+            if (sr == null) sr = mapBackgroundObj.AddComponent<SpriteRenderer>();
+
+            sr.sprite = bgSprite;
+            sr.sortingOrder = -10; // Draw behind players and NPCs
+
+            float centerX = mapWidth * 0.5f;
+            float centerY = mapHeight * 0.5f;
+            mapBackgroundObj.transform.position = new Vector3(centerX, centerY, 0f);
+
+            float spriteW = bgSprite.bounds.size.x;
+            float spriteH = bgSprite.bounds.size.y;
+            if (spriteW <= 0f || spriteH <= 0f)
+            {
+                Debug.LogWarning($"MapManager: Background sprite for map {mapId} has zero size; skipping scale.");
+                return;
+            }
+            mapBackgroundObj.transform.localScale = new Vector3(
+                (float)mapWidth / spriteW,
+                (float)mapHeight / spriteH,
+                1.0f);
+
+            Debug.Log($"MapManager: Background set – Center=({centerX},{centerY}), Scale=({(float)mapWidth/spriteW:F2},{(float)mapHeight/spriteH:F2})");
+        }
+
+        /// <summary>
+        /// Download a map background from a URL (Supabase Storage / CDN), caching the
+        /// bytes on disk keyed by map id + version so it only downloads once per change.
+        /// </summary>
+        private IEnumerator LoadBackgroundFromUrl(string url, int mapId, string version, int mapWidth, int mapHeight)
+        {
+            string cacheFile = Path.Combine(BgCacheDir, $"bg_{mapId}_{version}.png");
+
+            // 1. Try disk cache first
+            if (File.Exists(cacheFile))
+            {
+                byte[] bytes = null;
+                try { bytes = File.ReadAllBytes(cacheFile); }
+                catch (Exception e) { Debug.LogWarning($"MapManager: bg cache read failed: {e.Message}"); }
+
+                if (bytes != null)
+                {
+                    Texture2D tex = new Texture2D(2, 2);
+                    if (tex.LoadImage(bytes))
+                    {
+                        Sprite s = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f), 100f);
+                        ApplyBackgroundSprite(s, mapId, mapWidth, mapHeight);
+                        Debug.Log($"MapManager: Background for map {mapId} loaded from disk cache.");
+                        yield break;
+                    }
+                }
+            }
+
+            // 2. Download from URL
+            using (UnityWebRequest req = UnityWebRequestTexture.GetTexture(url))
+            {
+                yield return req.SendWebRequest();
+
+                if (req.result != UnityWebRequest.Result.Success)
+                {
+                    Debug.LogError($"MapManager: Failed to download background '{url}': {req.error}");
+                    yield break;
+                }
+
+                Texture2D tex = DownloadHandlerTexture.GetContent(req);
+                Sprite s = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f), 100f);
+                ApplyBackgroundSprite(s, mapId, mapWidth, mapHeight);
+
+                // 3. Persist to disk cache for next time
+                try
+                {
+                    if (!Directory.Exists(BgCacheDir)) Directory.CreateDirectory(BgCacheDir);
+                    File.WriteAllBytes(cacheFile, req.downloadHandler.data);
+                    Debug.Log($"MapManager: Background for map {mapId} downloaded and cached.");
+                }
+                catch (Exception e)
+                {
+                    Debug.LogWarning($"MapManager: bg cache write failed: {e.Message}");
+                }
+            }
+        }
+
         private void Start()
         {
             // Load the default starter map locally first (instant render from bundled/cache)
@@ -315,56 +410,43 @@ namespace TayDuKy.Managers
             activeMap = config;
             Debug.Log($"MapManager: Loading map '{activeMap.name}' (ID: {mapId})");
 
-            // 1. Setup background graphic
+            // 1. Setup background graphic (renderer is ensured by ApplyBackgroundSprite)
             if (mapBackgroundObj == null)
             {
                 mapBackgroundObj = new GameObject("MapBackground");
                 mapBackgroundObj.transform.SetParent(transform);
             }
 
-            var sr = mapBackgroundObj.GetComponent<SpriteRenderer>();
-            if (sr == null) sr = mapBackgroundObj.AddComponent<SpriteRenderer>();
-
-            Sprite bgSprite = Resources.Load<Sprite>(activeMap.bg_resource_path);
-
-            // Fallback: map PNGs are often imported as Texture2D (not Sprite).
-            // Load as Texture2D and wrap into a Sprite at runtime so background always shows.
-            if (bgSprite == null)
+            string bgPath = activeMap.bg_resource_path;
+            if (!string.IsNullOrEmpty(bgPath) &&
+                (bgPath.StartsWith("http://") || bgPath.StartsWith("https://")))
             {
-                Texture2D bgTex = Resources.Load<Texture2D>(activeMap.bg_resource_path);
-                if (bgTex != null)
-                {
-                    bgSprite = Sprite.Create(
-                        bgTex,
-                        new Rect(0, 0, bgTex.width, bgTex.height),
-                        new Vector2(0.5f, 0.5f),
-                        100f);
-                    Debug.Log($"MapManager: Loaded background '{activeMap.bg_resource_path}' via Texture2D fallback.");
-                }
-            }
-            if (bgSprite != null)
-            {
-                sr.sprite = bgSprite;
-                sr.sortingOrder = -10; // Draw behind players and NPCs
-
-                // BUG FIX #1: Z must be 0 in 2D – Z=10 pushed background behind Camera (at Z=-10)
-                float centerX = activeMap.width * 0.5f;
-                float centerY = activeMap.height * 0.5f;
-                mapBackgroundObj.transform.position = new Vector3(centerX, centerY, 0f);
-
-                // Scale sprite to fit the map grid bounds exactly
-                float spriteW = bgSprite.bounds.size.x;
-                float spriteH = bgSprite.bounds.size.y;
-                mapBackgroundObj.transform.localScale = new Vector3(
-                    (float)activeMap.width  / spriteW,
-                    (float)activeMap.height / spriteH,
-                    1.0f);
-
-                Debug.Log($"MapManager: Background set – Center=({centerX},{centerY}), Scale=({(float)activeMap.width/spriteW:F2},{(float)activeMap.height/spriteH:F2})");
+                // Remote background (Supabase Storage / CDN): download async with disk cache
+                string ver = mapVersions.TryGetValue(activeMap.id, out var v) ? v : "v0";
+                StartCoroutine(LoadBackgroundFromUrl(bgPath, activeMap.id, ver, activeMap.width, activeMap.height));
             }
             else
             {
-                Debug.LogError($"MapManager: Failed to load background sprite from: Resources/{activeMap.bg_resource_path}");
+                // Bundled background from Resources (Sprite, or Texture2D fallback)
+                Sprite bgSprite = Resources.Load<Sprite>(bgPath);
+                if (bgSprite == null)
+                {
+                    Texture2D bgTex = Resources.Load<Texture2D>(bgPath);
+                    if (bgTex != null)
+                    {
+                        bgSprite = Sprite.Create(
+                            bgTex,
+                            new Rect(0, 0, bgTex.width, bgTex.height),
+                            new Vector2(0.5f, 0.5f),
+                            100f);
+                        Debug.Log($"MapManager: Loaded background '{bgPath}' via Texture2D fallback.");
+                    }
+                }
+
+                if (bgSprite != null)
+                    ApplyBackgroundSprite(bgSprite, activeMap.id, activeMap.width, activeMap.height);
+                else
+                    Debug.LogError($"MapManager: Failed to load background sprite from: Resources/{bgPath}");
             }
 
             // 2. Clear old NPCs and other players

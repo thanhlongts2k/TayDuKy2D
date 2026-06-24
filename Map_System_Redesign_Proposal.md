@@ -128,11 +128,11 @@ Mỗi bước **độc lập, có giá trị riêng** — không cần làm hế
 - [x] **Bước 2 — MapRepository (server)** *(file-backed, có get_map/get_all/get_version/is_walkable/reload)*
 - [x] **Bước 3 — Versioning (SHA1 12 ký tự) + client cache trên đĩa** *(up_to_date bỏ map body để tiết kiệm băng thông)*
 - [ ] Bước 4 — Tiled import pipeline *(cần cài Tiled + thống nhất layer convention)*
-- [~] **Bước 5 — DB + admin panel** *(đã code: `PostgresMapRepository` + schema + seed + reload tự động; admin = Supabase Studio. Xem `Supabase_Setup_Guide.md`)*
+- [x] **Bước 5 — DB + admin panel + CDN** *(đã code đầy đủ; admin = Supabase Studio. Xem `Supabase_Setup_Guide.md`)*
   - [x] Backend PostgreSQL/Supabase (chọn qua `DATABASE_URL`, fallback file)
   - [x] Admin panel = Supabase Studio (Table Editor sửa cột `data` JSONB)
   - [x] Tự reload map sau khi admin sửa (`MAP_RELOAD_SECONDS`, mặc định 30s)
-  - [ ] Ảnh nền map lên Supabase Storage/CDN (`bg_resource_path` → URL, client tải runtime) — *increment kế tiếp*
+  - [x] Ảnh nền map qua Supabase Storage/CDN: `bg_resource_path` nhận URL, client tải runtime qua `UnityWebRequestTexture` + cache đĩa (`MapCache/bg/`), fallback `Resources/` khi không phải URL
 
 ### Cách hoạt động sau Bước 1-3 (transitional hybrid)
 - Client render map **local-first** (bundled `maps.json` → cache đĩa) để vào game tức thì, không phụ thuộc mạng.
@@ -218,3 +218,4 @@ sequenceDiagram
 - **Tiết kiệm băng thông:** `up_to_date` không truyền lại map body; chỉ tải khi version đổi.
 - **Fallback nhiều lớp:** server có map → dùng server; không → cache đĩa → bundled.
 - **Version ổn định:** hash từ canonical JSON (sort_keys) → cùng nội dung luôn cho cùng hash, không tải lại thừa.
+- **Ảnh nền linh hoạt:** `bg_resource_path` là URL → client tải qua CDN + cache đĩa (`MapCache/bg/`, key theo `mapId+version`); không phải URL → dùng `Resources/`. Ảnh tải bất đồng bộ, chỉ áp khi vẫn đang ở map đó (chống race khi đổi map nhanh).
